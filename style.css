@@ -1,0 +1,1353 @@
+/* ============================================================
+   CONECTA CARREIRA — DESIGN SYSTEM (extraído do Lovable)
+   Adaptado para HTML/CSS/JS vanilla. Sem build necessário.
+   ============================================================ */
+
+/* ---------- Fontes (cole no <head> do index.html) ----------
+   <link rel="preconnect" href="https://fonts.googleapis.com">
+   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+   ---------- */
+
+/* ---------- Variáveis do Design System — TEMA LAGO ---------- */
+:root {
+  --radius: 0.875rem;
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+  --radius-4xl: calc(var(--radius) + 16px);
+
+  --background: oklch(0.99 0.008 180);
+  --foreground: oklch(0.22 0.04 185);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.22 0.04 185);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.22 0.04 185);
+  --primary: oklch(0.52 0.12 182);
+  --primary-foreground: oklch(0.99 0.005 180);
+  --primary-glow: oklch(0.7 0.12 178);
+  --secondary: oklch(0.95 0.02 180);
+  --secondary-foreground: oklch(0.3 0.06 185);
+  --muted: oklch(0.95 0.018 180);
+  --muted-foreground: oklch(0.5 0.045 185);
+  --accent: oklch(0.93 0.045 178);
+  --accent-foreground: oklch(0.32 0.07 185);
+  --brand: oklch(0.52 0.12 182);
+  --brand-foreground: oklch(0.99 0.005 180);
+  --success: oklch(0.62 0.15 155);
+  --success-foreground: oklch(0.99 0.005 155);
+  --whatsapp: oklch(0.66 0.16 155);
+  --whatsapp-foreground: oklch(0.99 0.005 155);
+  --destructive: oklch(0.577 0.245 27.325);
+  --destructive-foreground: oklch(0.984 0.003 247.858);
+  --border: oklch(0.9 0.02 180);
+  --input: oklch(0.9 0.02 180);
+  --ring: oklch(0.52 0.12 182);
+  --hero-highlight: #fef9c3;
+
+  --gradient-hero: linear-gradient(
+    135deg,
+    oklch(0.3 0.07 192) 0%,
+    oklch(0.45 0.11 182) 45%,
+    oklch(0.6 0.12 174) 100%
+  );
+  --gradient-primary: linear-gradient(135deg, var(--primary) 0%, var(--primary-glow) 100%);
+  --gradient-soft: linear-gradient(
+    180deg,
+    color-mix(in oklab, var(--primary) 8%, transparent) 0%,
+    transparent 100%
+  );
+
+  --shadow-elegant: 0 18px 40px -22px color-mix(in oklab, var(--primary) 45%, transparent);
+  --shadow-card: 0 1px 2px color-mix(in oklab, var(--foreground) 6%, transparent),
+    0 12px 30px -18px color-mix(in oklab, var(--foreground) 20%, transparent);
+  --shadow-glow: 0 0 0 1px color-mix(in oklab, var(--primary) 18%, transparent),
+    0 20px 60px -20px color-mix(in oklab, var(--primary-glow) 55%, transparent);
+
+  --font-display: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+}
+
+/* ---------- Dark Mode — TEMA LAGO NOTURNO ---------- */
+[data-tema="escuro"] {
+  --background: oklch(0.17 0.03 190);
+  --foreground: oklch(0.96 0.01 180);
+  --card: oklch(0.22 0.035 190);
+  --card-foreground: oklch(0.96 0.01 180);
+  --popover: oklch(0.22 0.035 190);
+  --popover-foreground: oklch(0.96 0.01 180);
+  --primary: oklch(0.72 0.12 178);
+  --primary-foreground: oklch(0.18 0.04 190);
+  --primary-glow: oklch(0.74 0.1 185);
+  --secondary: oklch(0.27 0.04 190);
+  --secondary-foreground: oklch(0.96 0.01 180);
+  --muted: oklch(0.26 0.035 190);
+  --muted-foreground: oklch(0.72 0.03 180);
+  --accent: oklch(0.3 0.06 185);
+  --accent-foreground: oklch(0.96 0.01 180);
+  --brand: oklch(0.72 0.12 178);
+  --brand-foreground: oklch(0.18 0.04 190);
+  --success: oklch(0.72 0.14 155);
+  --success-foreground: oklch(0.17 0.03 155);
+  --whatsapp: oklch(0.72 0.15 155);
+  --whatsapp-foreground: oklch(0.17 0.03 155);
+  --destructive: oklch(0.704 0.191 22.216);
+  --destructive-foreground: oklch(0.984 0.003 247.858);
+  --border: oklch(1 0 0 / 12%);
+  --input: oklch(1 0 0 / 16%);
+  --ring: oklch(0.72 0.12 178);
+  --hero-highlight: #fef9c3;
+
+  --gradient-hero: linear-gradient(
+    135deg,
+    oklch(0.2 0.05 195) 0%,
+    oklch(0.28 0.07 188) 45%,
+    oklch(0.36 0.08 180) 100%
+  );
+
+  --shadow-card: 0 1px 2px color-mix(in oklab, #000 20%, transparent),
+    0 12px 30px -18px color-mix(in oklab, #000 40%, transparent);
+  --shadow-glow: 0 0 0 1px color-mix(in oklab, var(--primary) 25%, transparent),
+    0 20px 60px -20px color-mix(in oklab, var(--primary-glow) 45%, transparent);
+}
+
+/* ---------- Base ---------- */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  border-color: var(--border);
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  line-height: 1.6;
+}
+
+h1, h2, h3, h4 {
+  font-family: var(--font-display);
+  letter-spacing: -0.02em;
+}
+
+/* ---------- Acessibilidade de Teclado ---------- */
+*:focus-visible {
+  outline: 3px solid var(--ring);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+/* ---------- Utilities (do Lovable, como classes normais) ---------- */
+
+.bg-gradient-hero {
+  background-image: var(--gradient-hero);
+}
+
+.bg-gradient-primary {
+  background-image: var(--gradient-primary);
+}
+
+.bg-gradient-soft {
+  background-image: var(--gradient-soft);
+}
+
+.shadow-elegant {
+  box-shadow: var(--shadow-elegant);
+}
+
+.shadow-card {
+  box-shadow: var(--shadow-card);
+}
+
+.shadow-glow {
+  box-shadow: var(--shadow-glow);
+}
+
+.text-gradient {
+  background-image: var(--gradient-primary);
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+}
+
+/* Animação de entrada suave (scroll reveal) */
+.reveal {
+  opacity: 0;
+  transform: translateY(24px);
+  transition:
+    opacity 700ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 700ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.reveal[data-visible="true"],
+.reveal.visible {
+  opacity: 1;
+  transform: none;
+}
+
+/* Animação de bolha de chat */
+@keyframes bubble-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.animate-bubble-in {
+  animation: bubble-in 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Glassmorphism */
+.glass {
+  background: color-mix(in oklab, var(--card) 70%, transparent);
+  backdrop-filter: blur(16px) saturate(1.4);
+  -webkit-backdrop-filter: blur(16px) saturate(1.4);
+  border: 1px solid color-mix(in oklab, var(--foreground) 6%, transparent);
+}
+
+[data-tema="escuro"] .glass {
+  background: color-mix(in oklab, var(--card) 60%, transparent);
+  border-color: color-mix(in oklab, var(--foreground) 8%, transparent);
+}
+
+/* Padrão de pontos sutil para hero */
+.pattern-dots {
+  background-image: radial-gradient(circle at 2px 2px, color-mix(in oklab, var(--foreground) 8%, transparent) 1px, transparent 0);
+  background-size: 32px 32px;
+}
+
+/* ---------- Container ---------- */
+.container {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+/* ---------- Hero (reescrevido com o design system) ---------- */
+.hero {
+  position: relative;
+  overflow: hidden;
+  background-image: var(--gradient-hero);
+  color: #fff;
+  padding: 120px 20px 140px;
+  text-align: center;
+}
+
+.hero .pattern-dots {
+  position: absolute;
+  inset: 0;
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.hero .container {
+  position: relative;
+  z-index: 1;
+}
+
+.hero .selo {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: color-mix(in oklab, #fff 16%, transparent);
+  backdrop-filter: blur(8px);
+  border: 1px solid color-mix(in oklab, #fff 12%, transparent);
+  padding: 8px 18px;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 28px;
+}
+
+.hero h1 {
+  font-size: clamp(2.2rem, 5vw, 3.8rem);
+  font-weight: 800;
+  line-height: 1.1;
+  margin-bottom: 20px;
+  letter-spacing: -0.03em;
+}
+
+.hero h1 .highlight {
+  color: var(--hero-highlight);
+  text-shadow: 0 2px 20px color-mix(in oklab, var(--hero-highlight) 40%, transparent);
+}
+
+.hero p {
+  font-size: 1.15rem;
+  opacity: 0.92;
+  max-width: 560px;
+  margin: 0 auto 36px;
+  line-height: 1.65;
+}
+
+.botoes-hero {
+  display: flex;
+  gap: 14px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+/* Ondinha decorativa no final do hero */
+.hero-wave {
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  right: 0;
+  line-height: 0;
+}
+
+.hero-wave svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* ---------- Botões ---------- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px 32px;
+  border-radius: 999px;
+  font-size: 1rem;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  text-decoration: none;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.2s ease;
+  font-family: var(--font-sans);
+}
+
+.btn:hover {
+  transform: translateY(-2px);
+}
+
+.btn:active {
+  transform: scale(0.98);
+}
+
+.btn-branco {
+  background: #fff;
+  color: var(--primary);
+  box-shadow: 0 4px 20px color-mix(in oklab, #000 15%, transparent);
+}
+
+.btn-branco:hover {
+  box-shadow: 0 8px 30px color-mix(in oklab, #000 20%, transparent);
+}
+
+.btn-contorno {
+  background: color-mix(in oklab, #fff 10%, transparent);
+  backdrop-filter: blur(8px);
+  color: #fff;
+  border: 1.5px solid color-mix(in oklab, #fff 25%, transparent);
+}
+
+.btn-contorno:hover {
+  background: color-mix(in oklab, #fff 18%, transparent);
+  border-color: color-mix(in oklab, #fff 40%, transparent);
+}
+
+.btn-primario {
+  background-image: var(--gradient-primary);
+  color: var(--primary-foreground);
+  width: 100%;
+  margin-top: 20px;
+  box-shadow: var(--shadow-elegant);
+}
+
+.btn-primario:hover {
+  box-shadow: var(--shadow-glow);
+}
+
+.btn-copiar {
+  margin-top: 12px;
+  background: var(--foreground);
+  color: var(--background);
+  padding: 10px 22px;
+  font-size: 0.88rem;
+  display: none;
+}
+
+.btn-enviar {
+  background: var(--primary);
+  color: var(--primary-foreground);
+  padding: 10px 22px;
+  border-radius: 10px;
+}
+
+.btn-whats {
+  background: #fff;
+  color: #128c7e;
+  margin-top: 18px;
+  display: inline-flex;
+}
+
+/* ---------- Lucide Icons ---------- */
+  [data-lucide] {
+    display: inline-block;
+    vertical-align: middle;
+    flex-shrink: 0;
+  }
+
+  .btn [data-lucide],
+  .tab-btn [data-lucide],
+  .card-badge [data-lucide],
+  .card-emoji [data-lucide],
+  .selo [data-lucide],
+  .empty-state__icon [data-lucide],
+  .icon-check {
+    width: 18px;
+    height: 18px;
+    stroke-width: 2.5;
+  }
+
+  .botao-tema [data-lucide] {
+    width: 22px;
+    height: 22px;
+  }
+
+  .empty-state__icon [data-lucide] {
+    width: 48px;
+    height: 48px;
+    opacity: 0.5;
+    stroke-width: 1.5;
+  }
+
+  .selo [data-lucide] {
+    width: 16px;
+    height: 16px;
+    margin-right: 6px;
+  }
+
+  .card-emoji [data-lucide] {
+    width: 22px;
+    height: 22px;
+  }
+
+  .icon-check {
+    margin-right: 6px;
+  }
+
+  .btn [data-lucide] {
+    margin-right: 8px;
+  }
+
+  .tab-btn [data-lucide] {
+    margin-right: 8px;
+  }
+
+  .card-badge [data-lucide] {
+    margin-right: 6px;
+  }
+
+  /* ---------- Botão de Tema ---------- */
+.botao-tema {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 1000;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--foreground);
+  font-size: 1.2rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-card);
+  transition: transform 0.15s ease, background 0.2s ease, border-color 0.2s ease;
+}
+
+.botao-tema:hover {
+  transform: scale(1.08);
+}
+
+.botao-tema:active {
+  transform: scale(0.95);
+}
+
+/* ---------- Barra de Confiança ---------- */
+.confianca {
+  background: var(--card);
+  text-align: center;
+  padding: 18px;
+  font-weight: 600;
+  font-size: 0.92rem;
+  color: var(--muted-foreground);
+  box-shadow: var(--shadow-card);
+  position: relative;
+  z-index: 2;
+}
+
+/* ---------- Seções ---------- */
+section {
+  padding: 80px 0;
+}
+
+.secao-card {
+  background: var(--gradient-soft);
+}
+
+.titulo-secao {
+  text-align: center;
+  font-size: 2rem;
+  margin-bottom: 8px;
+  font-family: var(--font-display);
+  font-weight: 700;
+}
+
+.subtitulo-secao {
+  text-align: center;
+  color: var(--muted-foreground);
+  margin-bottom: 48px;
+  font-size: 1.05rem;
+}
+
+/* ---------- Tabs ---------- */
+.tabs {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin: 0 auto 28px;
+  padding: 8px;
+  background: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  max-width: 520px;
+}
+
+.tab-btn {
+  flex: 1;
+  border: none;
+  background: transparent;
+  color: var(--muted-foreground);
+  font-weight: 700;
+  font-size: 0.92rem;
+  padding: 12px 18px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+  font-family: var(--font-sans);
+}
+
+.tab-btn.active {
+  background-image: var(--gradient-primary);
+  color: #fff;
+  box-shadow: var(--shadow-glow);
+}
+
+.tab-panels {
+  position: relative;
+}
+
+.tab-panel {
+  display: none;
+}
+
+.tab-panel.active {
+  display: block;
+  animation: fadeUp 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* ---------- Cards ---------- */
+.card {
+  background: var(--card);
+  border-radius: var(--radius-2xl);
+  padding: 32px;
+  box-shadow: var(--shadow-card);
+  border: 1px solid var(--border);
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-glow);
+}
+
+.card::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto auto 0;
+  width: 100%;
+  height: 4px;
+  background: var(--gradient-primary);
+}
+
+.card-panel {
+  max-width: 760px;
+  margin: 0 auto;
+}
+
+.card-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--primary) 8%, transparent);
+  color: var(--primary);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  margin-bottom: 16px;
+}
+
+.card-emoji {
+  display: inline-flex;
+  width: 36px;
+  height: 36px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  background: var(--gradient-soft);
+  font-size: 1.1rem;
+  border: 1px solid var(--border);
+}
+
+.card h3 {
+  margin-bottom: 20px;
+  font-size: 1.3rem;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-family: var(--font-display);
+  font-weight: 700;
+}
+
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ---------- Formulário ---------- */
+label {
+  display: block;
+  font-weight: 600;
+  margin: 18px 0 6px;
+  font-size: 0.9rem;
+  color: var(--foreground);
+}
+
+input,
+textarea,
+select {
+  width: 100%;
+  padding: 12px 16px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-lg);
+  font-size: 0.95rem;
+  font-family: var(--font-sans);
+  background: var(--background);
+  color: var(--foreground);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--primary) 15%, transparent);
+}
+
+[data-tema="escuro"] input,
+[data-tema="escuro"] textarea,
+[data-tema="escuro"] select {
+  background: color-mix(in oklab, var(--card) 50%, transparent);
+}
+
+textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+/* ---------- Resultado do Currículo ---------- */
+.resultado {
+  margin-top: 24px;
+  background: var(--muted);
+  border-radius: var(--radius-xl);
+  padding: 24px;
+  font-size: 0.92rem;
+  display: none;
+  border: 1px solid var(--border);
+}
+
+.resultado p,
+.msg-ia p {
+  margin: 0 0 10px;
+}
+
+.resultado p:last-child,
+.msg-ia p:last-child {
+  margin-bottom: 0;
+}
+
+.resultado strong,
+.msg-ia strong {
+  font-weight: 700;
+  color: var(--foreground);
+}
+
+.resultado h1,
+.resultado h2,
+.resultado h3,
+.msg-ia h1,
+.msg-ia h2,
+.msg-ia h3 {
+  margin: 16px 0 8px;
+  font-size: 1.1rem;
+  color: var(--primary);
+  font-family: var(--font-display);
+}
+
+.resultado ul,
+.resultado ol,
+.msg-ia ul,
+.msg-ia ol {
+  margin: 0 0 10px 20px;
+}
+
+.resultado li,
+.msg-ia li {
+  margin-bottom: 4px;
+}
+
+.resultado hr,
+.msg-ia hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 14px 0;
+}
+
+/* ---------- Chat ---------- */
+.chat-box {
+  background: var(--muted);
+  border-radius: var(--radius-xl);
+  padding: 20px;
+  height: 340px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 14px;
+  border: 1px solid var(--border);
+  scroll-behavior: smooth;
+}
+
+.chat-box--simulador {
+  margin-top: 20px;
+}
+
+.msg {
+  max-width: 85%;
+  padding: 12px 16px;
+  border-radius: 18px;
+  font-size: 0.92rem;
+  line-height: 1.5;
+  animation: bubble-in 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.msg-ia {
+  background: var(--card);
+  color: var(--foreground);
+  align-self: flex-start;
+  border: 1px solid var(--border);
+  border-bottom-left-radius: 4px;
+  box-shadow: 0 2px 8px color-mix(in oklab, var(--foreground) 5%, transparent);
+}
+
+.msg-user {
+  background: var(--gradient-primary);
+  color: var(--primary-foreground);
+  align-self: flex-end;
+  border-bottom-right-radius: 4px;
+  box-shadow: 0 4px 12px color-mix(in oklab, var(--primary) 30%, transparent);
+}
+
+.msg-digitando {
+  font-style: italic;
+  color: var(--muted-foreground);
+  opacity: 0.8;
+  background: transparent;
+  border: 1px dashed var(--border);
+  box-shadow: none;
+}
+
+.chat-input {
+  display: flex;
+  gap: 10px;
+}
+
+.chat-input input {
+  flex: 1;
+}
+
+/* ---------- Como Funciona ---------- */
+.passos {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 28px;
+  text-align: center;
+}
+
+.passo {
+  background: var(--card);
+  border-radius: var(--radius-2xl);
+  padding: 36px 24px;
+  box-shadow: var(--shadow-card);
+  border: 1px solid var(--border);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.passo:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-glow);
+}
+
+.passo .numero {
+  width: 56px;
+  height: 56px;
+  margin: 0 auto 18px;
+  border-radius: 50%;
+  background: var(--gradient-primary);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.3rem;
+  font-weight: 800;
+  font-family: var(--font-display);
+  box-shadow: 0 8px 20px color-mix(in oklab, var(--primary) 35%, transparent);
+}
+
+.passo h3 {
+  font-size: 1.15rem;
+  margin-bottom: 8px;
+  font-family: var(--font-display);
+  font-weight: 700;
+}
+
+.passo p {
+  color: var(--muted-foreground);
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+
+/* ---------- WhatsApp Card ---------- */
+.whatsapp-card {
+  background: linear-gradient(135deg, #0f766e, #14b8a6);
+  color: #fff;
+  border-radius: var(--radius-2xl);
+  padding: 48px 40px;
+  text-align: center;
+  box-shadow: var(--shadow-elegant);
+  position: relative;
+  overflow: hidden;
+}
+
+.whatsapp-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(circle at 80% 20%, rgba(255,255,255,0.1) 0%, transparent 50%);
+  pointer-events: none;
+}
+
+.whatsapp-card h2 {
+  font-family: var(--font-display);
+  font-size: 1.6rem;
+  margin-bottom: 10px;
+}
+
+.whatsapp-card p {
+  opacity: 0.95;
+  max-width: 480px;
+  margin: 0 auto 8px;
+}
+
+/* ---------- Toast Notifications ---------- */
+  #toast-container {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-width: 360px;
+  }
+
+  .toast {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 14px 16px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-glow);
+    animation: toast-in 300ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    font-size: 0.9rem;
+    line-height: 1.4;
+  }
+
+  @keyframes toast-in {
+    from { opacity: 0; transform: translateX(40px) scale(0.95); }
+    to { opacity: 1; transform: none; }
+  }
+
+  .toast.removing {
+    animation: toast-out 200ms ease-in forwards;
+  }
+
+  @keyframes toast-out {
+    to { opacity: 0; transform: translateX(40px) scale(0.95); }
+  }
+
+  .toast--success { border-left: 4px solid var(--success); }
+  .toast--error { border-left: 4px solid var(--destructive); }
+  .toast--info { border-left: 4px solid var(--primary); }
+  .toast--warning { border-left: 4px solid #f59e0b; }
+
+  .toast__icon {
+    flex-shrink: 0;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .toast__icon [data-lucide] {
+    width: 20px;
+    height: 20px;
+    stroke-width: 2.5;
+  }
+
+  .toast--success .toast__icon { color: var(--success); }
+  .toast--error .toast__icon { color: var(--destructive); }
+  .toast--info .toast__icon { color: var(--primary); }
+  .toast--warning .toast__icon { color: #f59e0b; }
+
+  .toast__content { flex: 1; min-width: 0; }
+  .toast__title { font-weight: 700; margin-bottom: 2px; }
+  .toast__message { color: var(--muted-foreground); font-size: 0.85rem; }
+
+  .toast__close {
+    flex-shrink: 0;
+    background: none;
+    border: none;
+    color: var(--muted-foreground);
+    cursor: pointer;
+    padding: 4px;
+    border-radius: var(--radius-sm);
+    transition: background 0.15s, color 0.15s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .toast__close [data-lucide] {
+    width: 16px;
+    height: 16px;
+  }
+
+  .toast__close:hover {
+    background: var(--muted);
+    color: var(--foreground);
+  }
+
+  /* ---------- Skeleton Loaders ---------- */
+  .skeleton,
+  .skeleton-loader {
+    background: linear-gradient(
+      90deg,
+      var(--muted) 25%,
+      color-mix(in oklab, var(--muted) 60%, transparent) 50%,
+      var(--muted) 75%
+    );
+    background-size: 200% 100%;
+    animation: skeleton-shimmer 1.5s infinite;
+    border-radius: var(--radius-md);
+  }
+
+  @keyframes skeleton-shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+
+  .skeleton-text,
+  .skeleton-loader .skeleton-text {
+    height: 1rem;
+    margin-bottom: 8px;
+  }
+
+  .skeleton-text:last-child,
+  .skeleton-loader .skeleton-text:last-child { margin-bottom: 0; }
+
+  .skeleton-title,
+  .skeleton-loader .skeleton-title {
+    height: 1.5rem;
+    width: 60%;
+    margin-bottom: 16px;
+  }
+
+  .skeleton-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+  }
+
+  /* ---------- Form Validation ---------- */
+  .form-group { margin-bottom: 0; }
+  .form-group.has-error input,
+  .form-group.has-error textarea,
+  .form-group.has-error select {
+    border-color: var(--destructive);
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--destructive) 15%, transparent);
+  }
+
+  .form-error {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--destructive);
+    font-size: 0.8rem;
+    margin-top: 6px;
+    animation: fade-in 200ms ease;
+  }
+
+  @keyframes fade-in {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: none; }
+  }
+
+  .form-hint {
+    color: var(--muted-foreground);
+    font-size: 0.8rem;
+    margin-top: 6px;
+  }
+
+  /* ---------- Progress Indicator (Entrevista) ---------- */
+  .progress-steps {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    position: relative;
+  }
+
+  .progress-steps::before {
+    content: "";
+    position: absolute;
+    top: 16px;
+    left: 16px;
+    right: 16px;
+    height: 3px;
+    background: var(--border);
+    border-radius: 999px;
+    z-index: 0;
+  }
+
+  .progress-steps [data-tema="escuro"]::before {
+    background: color-mix(in oklab, var(--foreground) 12%, transparent);
+  }
+
+  .progress-step {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    flex: 1;
+  }
+
+  .progress-step__circle {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--muted);
+    border: 2px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 0.85rem;
+    color: var(--muted-foreground);
+    transition: all 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .progress-step.active .progress-step__circle {
+    background: var(--gradient-primary);
+    border-color: transparent;
+    color: var(--primary-foreground);
+    box-shadow: 0 0 0 4px color-mix(in oklab, var(--primary) 20%, transparent);
+  }
+
+  .progress-step.completed .progress-step__circle {
+    background: var(--success);
+    border-color: transparent;
+    color: var(--success-foreground);
+  }
+
+  .progress-step__label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--muted-foreground);
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  .progress-step.active .progress-step__label {
+    color: var(--primary);
+  }
+
+  /* ---------- Cancel Button ---------- */
+  .btn-cancelar {
+    background: transparent;
+    color: var(--muted-foreground);
+    border: 1.5px solid var(--border);
+    margin-top: 12px;
+  }
+
+  .btn-cancelar:hover {
+    background: var(--muted);
+    border-color: var(--foreground);
+    color: var(--foreground);
+  }
+
+  /* ---------- Empty State ---------- */
+  .empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 48px 24px;
+    text-align: center;
+    color: var(--muted-foreground);
+    gap: 12px;
+  }
+
+  .empty-state__icon {
+    font-size: 3rem;
+    opacity: 0.5;
+  }
+
+  .empty-state__title {
+    font-weight: 700;
+    color: var(--foreground);
+  }
+
+  .empty-state__desc {
+    font-size: 0.9rem;
+    max-width: 280px;
+  }
+
+  /* ---------- Footer ---------- */
+  footer {
+    background: oklch(0.2 0.045 192);
+    color: color-mix(in oklab, #fff 60%, transparent);
+    text-align: center;
+    padding: 40px 20px;
+    font-size: 0.88rem;
+  }
+
+footer a {
+  color: #fff;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+footer a:hover {
+  color: var(--primary);
+}
+
+/* ---------- Responsivo ---------- */
+@media (max-width: 768px) {
+  .tabs {
+    flex-direction: column;
+    border-radius: var(--radius-xl);
+  }
+
+  .card {
+    padding: 24px 20px;
+  }
+
+  .botoes-hero {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .btn,
+  .btn-primario,
+  .btn-enviar,
+  .btn-copiar {
+    width: 100%;
+  }
+
+  .chat-input {
+    flex-direction: column;
+  }
+
+  .hero {
+    padding: 100px 20px 120px;
+  }
+
+  .hero h1 {
+    font-size: 2.2rem;
+  }
+
+  .titulo-secao {
+    font-size: 1.7rem;
+  }
+
+  section {
+    padding: 60px 0;
+  }
+
+  .passos {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  .hero h1 {
+    font-size: 1.9rem;
+  }
+
+  .whatsapp-card {
+    padding: 32px 20px;
+  }
+}
+
+/* ---------- Novos: acessibilidade, erro, progresso, edição ---------- */
+[hidden] {
+  display: none !important;
+}
+
+.skeleton-loader:not([hidden]) {
+  display: block;
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 8px;
+  z-index: 2000;
+  background: var(--primary);
+  color: var(--primary-foreground);
+  padding: 10px 18px;
+  border-radius: 999px;
+  font-weight: 700;
+  text-decoration: none;
+}
+.skip-link:focus { left: 8px; }
+
+.erro-box {
+  margin-top: 16px;
+  padding: 16px 18px;
+  border-radius: var(--radius-xl);
+  border: 1.5px solid var(--destructive);
+  background: color-mix(in oklab, var(--destructive) 8%, var(--card));
+  font-size: 0.92rem;
+}
+.erro-box p { color: var(--muted-foreground); margin: 6px 0 12px; }
+
+.btn-tentar {
+  background: var(--destructive);
+  color: var(--destructive-foreground);
+  padding: 10px 22px;
+  border-radius: 999px;
+  font-size: 0.9rem;
+}
+.msg-erro { border: 1.5px solid var(--destructive); }
+.msg-erro .btn-tentar { margin-top: 10px; width: auto; }
+
+.progress-curriculo {
+  margin-top: 16px;
+  background: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 6px 12px;
+  position: relative;
+  overflow: hidden;
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+}
+.progress-curriculo__bar {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 5%;
+  background: var(--gradient-primary);
+  opacity: 0.35;
+  border-radius: 999px;
+  transition: width 0.4s ease;
+}
+.progress-curriculo__label {
+  position: relative;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--foreground);
+}
+
+.btn-secundario {
+  background: var(--secondary);
+  color: var(--secondary-foreground);
+  border: 1.5px solid var(--border);
+  width: 100%;
+  margin-top: 0;
+}
+.btn-limpar {
+  background: transparent;
+  color: var(--muted-foreground);
+  border: 1.5px dashed var(--border);
+  padding: 10px 22px;
+  font-size: 0.88rem;
+}
+.btn-limpar:hover { color: var(--destructive); border-color: var(--destructive); }
+
+.resultado.editando {
+  outline: 2px dashed var(--primary);
+  outline-offset: 4px;
+  background: var(--card);
+}
+
+/* ---------- Mobile extra ---------- */
+@media (max-width: 768px) {
+  .botoes-resultado .btn { width: 100%; }
+  .chat-box { height: 300px; padding: 14px; }
+  .msg { max-width: 95%; }
+  .container { padding: 0 14px; }
+  #toast-container { left: 14px; right: 14px; max-width: none; }
+}

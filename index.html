@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Conecta Carreira — Currículo e Entrevista com IA, de graça</title>
+  <meta name="description" content="Projeto de extensão: ferramentas gratuitas com IA para jovens criarem currículo e treinarem para entrevistas de emprego.">
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <script>
+    (function () {
+      var temaSalvo = localStorage.getItem('conecta-carreira-tema');
+      if (temaSalvo === 'escuro') {
+        document.documentElement.setAttribute('data-tema', 'escuro');
+      }
+    })();
+  </script>
+
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+  <a class="skip-link" href="#ferramentas">Pular para as ferramentas</a>
+  <button id="toggle-tema" class="botao-tema" type="button" aria-label="Alternar para modo escuro" title="Alternar modo claro/escuro">
+    <i data-lucide="moon" class="icon-theme" aria-hidden="true"></i>
+  </button>
+
+  <!-- ===== HERO ===== -->
+  <header class="hero">
+    <div class="pattern-dots" aria-hidden="true"></div>
+    <div class="container">
+      <span class="selo"><i data-lucide="graduation-cap" aria-hidden="true"></i> Projeto de Extensão Universitária</span>
+      <h1>Seu currículo pronto em <span class="highlight text-gradient">2 minutos</span>.<br>De graça.</h1>
+      <p>Ferramentas com Inteligência Artificial para jovens que buscam o primeiro emprego ou uma recolocação no mercado.</p>
+      <div class="botoes-hero">
+        <a href="#ferramentas" class="btn btn-branco btn-tab" data-tab="curriculo"><i data-lucide="file-text" aria-hidden="true"></i> Criar meu currículo</a>
+        <a href="#ferramentas" class="btn btn-contorno btn-tab" data-tab="entrevista"><i data-lucide="message-square" aria-hidden="true"></i> Simular entrevista</a>
+      </div>
+    </div>
+    <div class="hero-wave" aria-hidden="true">
+      <svg viewBox="0 0 1440 120" fill="none" preserveAspectRatio="none">
+        <path d="M0 120L60 105C120 90 240 60 360 45C480 30 600 30 720 37.5C840 45 960 60 1080 67.5C1200 75 1320 75 1380 75L1440 75V120H1380C1320 120 1200 120 1080 120C960 120 840 120 720 120C600 120 480 120 360 120C240 120 120 120 60 120H0Z"/>
+      </svg>
+    </div>
+  </header>
+
+  <!-- ===== CONFIANÇA ===== -->
+  <div class="confianca">
+    <div class="container">
+      <i data-lucide="check-circle" class="icon-check" aria-hidden="true"></i> 100% gratuito &nbsp;•&nbsp; <i data-lucide="check-circle" class="icon-check" aria-hidden="true"></i> Sem cadastro &nbsp;•&nbsp; <i data-lucide="check-circle" class="icon-check" aria-hidden="true"></i> Feito por estudantes, para a comunidade
+    </div>
+  </div>
+
+  <!-- ===== FERRAMENTAS ===== -->
+  <section id="ferramentas">
+    <div class="container">
+      <h2 class="titulo-secao reveal">Nossas ferramentas</h2>
+      <p class="subtitulo-secao reveal">Escolha por onde começar <i data-lucide="chevron-down" aria-hidden="true"></i></p>
+
+      <div class="tabs glass" role="tablist" aria-label="Ferramentas">
+        <button class="tab-btn active" role="tab" aria-selected="true" aria-controls="curriculo-panel" type="button" data-tab="curriculo"><i data-lucide="file-text" aria-hidden="true"></i> Gerador de Currículo</button>
+        <button class="tab-btn" role="tab" aria-selected="false" aria-controls="entrevista-panel" type="button" data-tab="entrevista"><i data-lucide="message-square" aria-hidden="true"></i> Simulador de Entrevista</button>
+      </div>
+
+      <div class="tab-panels">
+
+        <!-- PANEL CURRÍCULO -->
+        <div class="tab-panel active" id="curriculo-panel" role="tabpanel">
+          <div class="card card-panel shadow-glow">
+            <div class="card-badge"><i data-lucide="zap" aria-hidden="true"></i> IA + carreira</div>
+            <h3><span class="card-emoji" aria-hidden="true"><i data-lucide="file-text"></i></span> Gerador de Currículo com IA</h3>
+
+            <div class="form-group">
+              <label for="nome">Nome completo <span aria-hidden="true">*</span></label>
+              <input type="text" id="nome" placeholder="Ex.: Sálvio Sérgio" required aria-required="true">
+              <div class="form-error" id="err-nome" hidden></div>
+            </div>
+
+            <div class="form-group">
+              <label for="contato">Contato (email / telefone)</label>
+              <input type="text" id="contato" placeholder="maria@email.com | (11) 99999-0000">
+              <div class="form-error" id="err-contato" hidden></div>
+            </div>
+
+            <div class="form-group">
+              <label>Links profissionais <span style="font-weight:400; color:var(--muted-foreground)">(opcional)</span></label>
+              <input type="url" id="linkedin" placeholder="LinkedIn: linkedin.com/in/seu-nome">
+              <input type="url" id="github" placeholder="GitHub: github.com/seu-usuario" style="margin-top:10px">
+            </div>
+
+            <div class="form-group">
+              <label>Informações adicionais <span style="font-weight:400; color:var(--muted-foreground)">(opcional)</span></label>
+              <input type="text" id="cidade" placeholder="Cidade">
+              <input type="text" id="estado" placeholder="Estado (UF)" maxlength="40" style="margin-top:10px">
+              <input type="text" id="idioma" placeholder="Idioma e nível: ex. Inglês intermediário" style="margin-top:10px">
+            </div>
+
+            <div class="form-group">
+              <label for="formacao">Formação</label>
+              <input type="text" id="formacao" placeholder="Ex.: Ensino médio completo, cursando SI">
+              <div class="form-error" id="err-formacao" hidden></div>
+            </div>
+
+            <div class="form-group">
+              <label for="experiencia">Experiências e vivências <span style="font-weight:400; color:var(--muted-foreground)">(opcional)</span></label>
+              <textarea id="experiencia" placeholder="Vale emprego, trabalho informal, projeto escolar, voluntariado, organização de evento ou atividade em grupo..."></textarea>
+              <div class="form-error" id="err-experiencia" hidden></div>
+            </div>
+
+            <div class="form-group">
+              <label for="habilidades">Habilidades e cursos</label>
+              <textarea id="habilidades" placeholder="Ex.: Excel básico, comunicação, curso de informática..."></textarea>
+              <div class="form-error" id="err-habilidades" hidden></div>
+            </div>
+
+            <div class="form-group">
+              <label for="objetivo">Vaga que você busca <span aria-hidden="true">*</span></label>
+              <input type="text" id="objetivo" placeholder="Ex.: Jovem aprendiz em administração" required aria-required="true">
+              <div class="form-error" id="err-objetivo" hidden></div>
+            </div>
+
+            <div class="form-group">
+              <label for="descricao-vaga">Descrição da vaga <span style="font-weight:400; color:var(--muted-foreground)">(opcional)</span></label>
+              <textarea id="descricao-vaga" placeholder="Cole aqui os requisitos e responsabilidades da vaga para personalizar o currículo..."></textarea>
+            </div>
+
+            <button class="btn btn-primario" id="btn-gerar" onclick="gerarCurriculo()"><i data-lucide="sparkles" aria-hidden="true"></i> Gerar currículo com IA</button>
+            <button class="btn btn-secundario" id="btn-exemplo" type="button" onclick="preencherExemplo()" style="margin-top:10px"><i data-lucide="wand-2" aria-hidden="true"></i> Preencher com exemplo</button>
+            <button class="btn btn-cancelar" id="btn-cancelar-curriculo" onclick="cancelarGeracao()" hidden><i data-lucide="x" aria-hidden="true"></i> Cancelar (Esc)</button>
+
+            <div class="progress-curriculo" id="progress-curriculo" hidden role="status" aria-live="polite">
+              <div class="progress-curriculo__bar" id="progress-curriculo-bar"></div>
+              <span class="progress-curriculo__label" id="progress-curriculo-label">Gerando…</span>
+            </div>
+
+            <div class="erro-box" id="erro-curriculo" hidden tabindex="-1" role="alert">
+              <strong>Não foi possível gerar agora.</strong>
+              <p id="erro-curriculo-msg"></p>
+              <button class="btn btn-tentar" type="button" onclick="tentarNovamenteCurriculo()"><i data-lucide="rotate-ccw" aria-hidden="true"></i> Tentar novamente</button>
+            </div>
+
+            <div class="resultado" id="resultado-curriculo" aria-live="polite"></div>
+            <div class="resultado skeleton-loader" id="skeleton-curriculo" hidden aria-hidden="true">
+              <div class="skeleton skeleton-title"></div>
+              <div class="skeleton skeleton-text" style="width: 80%"></div>
+              <div class="skeleton skeleton-text" style="width: 60%"></div>
+              <div class="skeleton skeleton-text" style="width: 90%"></div>
+              <div class="skeleton skeleton-text" style="width: 70%"></div>
+              <div class="skeleton skeleton-text" style="width: 50%"></div>
+            </div>
+            <div class="botoes-resultado" style="display:none; gap:10px; margin-top:16px; flex-wrap:wrap" id="botoes-resultado">
+              <button class="btn btn-copiar" id="btn-copiar" onclick="copiarCurriculo()"><i data-lucide="clipboard" aria-hidden="true"></i> Copiar</button>
+              <button class="btn btn-secundario" id="btn-editar" onclick="alternarEdicaoCurriculo()"><i data-lucide="pencil" aria-hidden="true"></i> Editar</button>
+              <button class="btn btn-primario" id="btn-pdf" onclick="baixarPDF()"><i data-lucide="download" aria-hidden="true"></i> Baixar PDF</button>
+              <button class="btn btn-secundario" id="btn-txt" onclick="baixarTXT()"><i data-lucide="file-text" aria-hidden="true"></i> Baixar TXT</button>
+              <button class="btn btn-limpar" id="btn-limpar-curriculo" onclick="limparHistorico('curriculo')"><i data-lucide="trash-2" aria-hidden="true"></i> Limpar histórico</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- PANEL ENTREVISTA -->
+        <div class="tab-panel" id="entrevista-panel" role="tabpanel">
+          <div class="card card-panel shadow-glow">
+            <div class="card-badge"><i data-lucide="target" aria-hidden="true"></i> Treinamento realista</div>
+            <h3><span class="card-emoji" aria-hidden="true"><i data-lucide="message-square"></i></span> Simulador de Entrevista</h3>
+
+            <label for="area">Escolha a área da entrevista</label>
+            <select id="area">
+              <option>Primeiro Emprego</option>
+              <option>Administração</option>
+              <option>Vendas</option>
+              <option>Tecnologia (TI)</option>
+              <option>Operacional</option>
+            </select>
+
+            <div class="progress-steps" id="progress-steps" hidden>
+              <div class="progress-step" data-step="1">
+                <div class="progress-step__circle">1</div>
+                <span class="progress-step__label">Início</span>
+              </div>
+              <div class="progress-step" data-step="2">
+                <div class="progress-step__circle">2</div>
+                <span class="progress-step__label">Desenvolvimento</span>
+              </div>
+              <div class="progress-step" data-step="3">
+                <div class="progress-step__circle">3</div>
+                <span class="progress-step__label">Feedback</span>
+              </div>
+            </div>
+
+            <button class="btn btn-primario" id="btn-iniciar" onclick="iniciarEntrevista()"><i data-lucide="play" aria-hidden="true"></i> Começar simulação</button>
+
+            <div class="chat-box chat-box--simulador" id="chat-box" aria-live="polite">
+              <div class="empty-state" id="empty-state">
+                <div class="empty-state__icon" aria-hidden="true"><i data-lucide="message-square"></i></div>
+                <div class="empty-state__title">Simulação pronta para começar</div>
+                <p class="empty-state__desc">Selecione uma área e clique em "Começar simulação" para treinar com nosso recrutador virtual.</p>
+              </div>
+            </div>
+
+            <div class="chat-input" id="chat-input" hidden>
+              <label for="resposta" class="sr-only">Sua resposta (Enter para enviar)</label>
+              <input type="text" id="resposta" placeholder="Digite sua resposta... (Enter envia)" autocomplete="off">
+              <button class="btn btn-enviar" onclick="enviarResposta()">Enviar</button>
+            </div>
+
+            <button class="btn btn-cancelar" id="btn-cancelar-entrevista" onclick="cancelarEntrevista()" hidden><i data-lucide="x" aria-hidden="true"></i> Encerrar simulação (Esc)</button>
+            <button class="btn btn-limpar" id="btn-limpar-entrevista" type="button" onclick="limparHistorico('entrevista')" style="margin-top:10px"><i data-lucide="trash-2" aria-hidden="true"></i> Limpar histórico</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== COMO FUNCIONA ===== -->
+  <section class="secao-card">
+    <div class="container">
+      <h2 class="titulo-secao reveal">Como funciona</h2>
+      <p class="subtitulo-secao reveal">Simples assim:</p>
+      <div class="passos">
+        <div class="passo reveal">
+          <div class="numero" aria-hidden="true">1</div>
+          <h3>Preenche</h3>
+          <p>Conte um pouco sobre você no formulário. Leva menos de 2 minutos.</p>
+        </div>
+        <div class="passo reveal">
+          <div class="numero" aria-hidden="true">2</div>
+          <h3>A IA trabalha</h3>
+          <p>Nossa inteligência artificial monta um currículo profissional destacando seus pontos fortes.</p>
+        </div>
+        <div class="passo reveal">
+          <div class="numero" aria-hidden="true">3</div>
+          <h3>Você aplica</h3>
+          <p>Copie o currículo, treine na entrevista simulada e candidate-se às vagas com confiança.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== WHATSAPP ===== -->
+  <section>
+    <div class="container">
+      <div class="whatsapp-card reveal">
+        <h2>Ficou com dúvida? Fala com a gente! <i data-lucide="message-circle" aria-hidden="true"></i></h2>
+        <p>Nossa equipe acompanha você por WhatsApp — dicas de currículo, de entrevista e de vagas.</p>
+        <a class="btn btn-whats" href="https://wa.me/5511999999999?text=Ol%C3%A1!%20Vim%20pelo%20site%20Conecta%20Carreira%20e%20quero%20ajuda%20com%20meu%20curr%C3%ADculo." target="_blank" rel="noopener noreferrer">
+          Chamar no WhatsApp
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== FOOTER ===== -->
+  <footer>
+    <p><strong>Conecta Carreira</strong> — Projeto de Extensão</p>
+    <p>Disciplina: Desenvolvimento Humano e Carreira • Profª Tatiana Vieira</p>
+    <p>Código aberto no <a href="https://github.com/SEU-USUARIO/conecta-carreira" target="_blank" rel="noopener noreferrer">GitHub</a></p>
+  </footer>
+
+  <!-- Toast container -->
+  <div id="toast-container" aria-live="polite" aria-atomic="true"></div>
+
+  <!-- Scripts -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.5/purify.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="api.js"></script>
+  <script src="script.js"></script>
+
+  <!-- Scroll reveal simples -->
+  <script>
+    (function() {
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('visible');
+            observer.unobserve(entry.target);
+          }
+        });
+      }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+
+      document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+    })();
+  </script>
+</body>
+</html>

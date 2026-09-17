@@ -1,0 +1,15 @@
+# Deploy one-click no Render (backend + frontend juntos).
+# O Flask já serve o site estático, então 1 serviço só resolve tudo.
+services:
+  - type: web
+    name: conecta-carreira
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --workers 2 --timeout 70
+    envVars:
+      - key: GEMINI_KEY
+        sync: false # preencha no painel do Render (nunca commite a chave)
+      - key: GEMINI_MODEL
+        value: gemini-2.5-flash-lite
+      - key: ALLOWED_ORIGINS
+        sync: false # opcional; vazio = mesmo domínio (ok p/ serviço único)
