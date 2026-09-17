@@ -247,15 +247,15 @@ FORMATO OBRIGATÓRIO:
 ## Resumo Profissional
 Um resumo com 4 a 6 frases completas, específico para a vaga.
 ## Formação Acadêmica
-Use bullets com curso, instituição e situação.
+Use bullets com curso, instituição e situação. Se a instituição não foi informada, escreva apenas curso + situação — NUNCA invente nome de instituição nem use placeholders como "Instituição de Ensino Superior".
 ## Experiência Profissional
 Use bullets com atividades e aprendizados concretos. Se não houver experiência formal, escreva "Ainda não possui experiência formal" e siga para projetos.
 ## Projetos Relevantes
-Se não houver experiência formal, crie até 2 projetos acadêmicos ou autodidatas plausíveis usando SOMENTE as habilidades e a formação informadas. Para cada projeto, escreva 2 a 4 bullets com o que foi feito e aprendido.
+Se não houver experiência formal, crie até 2 projetos acadêmicos ou autodidatas plausíveis usando SOMENTE as habilidades e a formação informadas. Para cada projeto, escreva o título em negrito seguido de 2 a 4 bullets com o que foi feito e aprendido. NÃO escreva parágrafo introdutório — vá direto aos bullets, sem repetir a mesma informação duas vezes.
 ## Habilidades
 Separe habilidades técnicas e comportamentais em bullets.
 ## Certificações e Cursos
-Inclua somente os que foram informados.
+Inclua somente os que foram informados, mantendo o status dado pelo candidato (concluído / em andamento / estudando para). Se o status não foi informado, liste o nome sem afirmar conclusão e sem afirmar que é certificação obtida.
 ## Idiomas
 Inclua somente o idioma informado pelo candidato. Se não houver idioma informado, omita esta seção completamente.
 ## Pontos fortes para a vaga
@@ -265,6 +265,8 @@ Quando houver descrição da vaga, liste de 2 a 4 habilidades ou experiências q
 
 REGRAS:
 - Retorne somente o Markdown do currículo, sem comentários antes ou depois.
+- Não repita a mesma informação em duas seções diferentes.
+- Padronize o nome da vaga/objetivo com capitalização correta (ex.: "Analista SOC"), sem mudar o sentido do que o candidato escreveu.
 - Não escreva frases genéricas como "profissional dedicado" sem explicar evidências concretas.
 - Não invente empresas, empregos, certificados, idiomas, tecnologias, números ou experiências.
 - Pode transformar os dados em descrições profissionais melhores, mas sem criar fatos.
