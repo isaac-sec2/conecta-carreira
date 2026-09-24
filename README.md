@@ -1,44 +1,55 @@
 # Conecta Carreira — Frontend + Backend Python
 
-Interface para gerar currículos e simular entrevistas com IA.
-A chave do Gemini fica **só no backend** (`.env`), nunca no frontend.
+Interface para gerar currículos e simular entrevistas com IA. A chave do Gemini fica somente no backend.
 
 ## Stack
-- Frontend: HTML/CSS/JS vanilla (sem build)
-  - marked + DOMPurify (Markdown → HTML seguro)
-  - jsPDF (geração de PDF client-side)
-  - Lucide Icons
-- Backend: Python Flask (proxy da API Gemini com streaming SSE)
+
+- Frontend: HTML, CSS e JavaScript vanilla, sem etapa de build.
+- Backend: Flask, proxy da API Gemini com streaming SSE.
+- PDF: jsPDF no navegador.
+- Markdown: marked com sanitização por DOMPurify.
 
 ## Estrutura
-```
-├── index.html      # HTML principal
-├── style.css       # Design system tema LAGO (OKLCH, dark mode, responsivo)
-├── script.js       # Lógica: forms, chat, PDF, TXT, edição, histórico
-├── api.js          # Cliente da IA — chama /api/gemini (sem chave!) + erros claros
-├── app.py          # Backend: valida, rate-limit, log seguro, proxy streaming
+
+```text
+├── index.html
+├── style.css
+├── script.js
+├── api.js
+├── app.py
 ├── requirements.txt
-├── Dockerfile      # Deploy do backend
-├── tests/          # pytest: health, validação, rate-limit, stream mockado
-├── .env.example    # Copie para .env e coloque sua chave
-└── worker.js       # (legado) não é mais necessário
+├── Dockerfile
+├── render.yaml
+└── tests/test_app.py
 ```
+
+O Flask serve somente `index.html`, `style.css`, `script.js` e `api.js`. Os demais arquivos do projeto não são acessíveis pela rota estática.
 
 ## Rodar local
 
 ```bash
+python -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
-cp .env.example .env   # Linux/Mac  |  copy .env.example .env  (Windows)
-# edite o .env e coloque sua GEMINI_KEY
-
-python app.py
-# abra http://localhost:5000
+cp .env.example .env
 ```
 
-Endpoints:
-- `GET /` → index.html
-- `GET /api/health` (alias `/api/status`) → status detalhado
-- `POST /api/gemini` → proxy do Gemini (streaming SSE)
+Preencha `GEMINI_KEY` no `.env` e execute:
+
+```bash
+python app.py
+```
+
+Abra `http://localhost:5000`. O servidor local escuta apenas `127.0.0.1`; `FLASK_DEBUG` permanece falso por padrão.
+
+## Endpoints
+
+- `GET /` — página principal.
+- `GET /api/health` e `GET /api/status` — liveness/readiness. Retorna `503` se a chave não estiver configurada.
+- `POST /api/gemini` — proxy autenticado pela chave do servidor, com resposta SSE.
+- `OPTIONS /api/gemini` — preflight CORS para origens autorizadas.
+
+Exemplo:
 
 ```bash
 curl http://localhost:5000/api/health
@@ -47,50 +58,68 @@ curl -X POST http://localhost:5000/api/gemini \
   -d '{"prompt":"Diga olá","maxTokens":100}'
 ```
 
-## Testes
+## Testes e segurança
 
 ```bash
 pip install -r requirements.txt
 pytest -q
 ```
-9 testes: health, validação de `maxTokens`/`temperature`/prompt, stream mockado
-(sem gastar cota), rate-limit 429 e bloqueio de `/.env` e `/app.py`.
 
-> Teste com a API real: configure a `GEMINI_KEY` no `.env`, rode o backend,
-> gere um currículo e rode a entrevista completa (3 perguntas + feedback).
-> Erros comuns já têm mensagem clara + botão **Tentar novamente**.
+A suíte não chama a API real. Ela cobre health/readiness, validação estrita, limite de corpo, CORS, preflight, rate-limit, streaming, upstream e proteção de arquivos privados.
 
-## Segurança
-- `.env` está no `.gitignore` (+ `.dockerignore`) — **nunca commite sua chave**.
-- A chave antiga (`AQ.Ab8...`) estava exposta no `api.js` — **revogue ela no
-  Google AI Studio e gere uma nova**, depois coloque só no `.env` do servidor.
-- Backend valida `maxTokens` (1–4096), `temperature` (0–1) e prompt (máx 12000 chars).
-- Rate-limit: 20 req/min por IP em `/api/gemini` (429 + `Retry-After`).
-- Logs nunca imprimem a chave; erros do Google são traduzidos p/ mensagens claras.
-- Em produção, restrinja o CORS: `ALLOWED_ORIGINS=https://seu-site.vercel.app`.
+Proteções atuais:
 
-## Funcionalidades
-- **Currículo**: validação antes da IA, progresso com tempo + prévia ao vivo,
-  erro com Tentar novamente, **editar antes de baixar**, baixar **PDF e TXT**,
-  copiar, exemplo de preenchimento, limpar histórico.
-- **Entrevista**: 3 etapas, erro com Tentar novamente (sem duplicar resposta),
-  Enter envia, Esc cancela, limpar histórico.
-- **Acessibilidade**: skip-link, `role=alert`, foco no resultado/erro, labels.
-- **Mobile**: botões em largura total, chat e toasts adaptados.
+- allowlist de quatro arquivos públicos;
+- CORS por allowlist, sem reflexão arbitrária de `Origin`;
+- `ALLOWED_ORIGINS` vazio permite apenas uso same-origin;
+- limite de 64 KiB no corpo e validação estrita do payload;
+- rate-limit atômico em memória, com expiração e limite de chaves;
+- limite global de oito streams para reservar capacidade para health checks;
+- chave enviada ao Gemini pelo header `x-goog-api-key`;
+- `.env*`, `.git`, testes e caches excluídos da imagem Docker;
+- nenhum currículo ou transcript é persistido automaticamente no navegador.
+
+CORS não é autenticação nem impede abuso por clientes não-browser. Para um serviço com escala horizontal, substitua o armazenamento em memória do rate-limit por Redis ou outro armazenamento compartilhado e aplique autenticação/quotas conforme o caso de uso.
+
+`TRUST_PROXY` deve ficar `false` quando a aplicação estiver exposta diretamente. Ative-o somente atrás de um proxy confiável. Nesse modo, `CLIENT_IP_HEADER` informa o cabeçalho de IP sanitizado pelo proxy; no Render, o Blueprint usa `CF-Connecting-IP`, fornecido pela camada Cloudflare.
+
+## Frontend separado
+
+O frontend usa o mesmo domínio por padrão. Para Vercel, Netlify ou outro servidor estático, altere `index.html`:
+
+```html
+<meta name="api-base-url" content="https://SEU-BACKEND">
+```
+
+Depois, adicione o domínio exato do frontend em `ALLOWED_ORIGINS`:
+
+```text
+ALLOWED_ORIGINS=https://SEU-FRONTEND
+```
+
+Use sempre HTTPS. A porta `5500` mantém o fallback local para `http://localhost:5000`; o `.env.example` já autoriza `localhost:5500`, `127.0.0.1:5500` e `[::1]:5500` para desenvolvimento.
 
 ## Publicação
 
-**Backend (Render / Railway / Fly.io):**
-1. Suba o repo sem o `.env`.
-2. Configure as envs na hospedagem: `GEMINI_KEY`, `GEMINI_MODEL`,
-   `ALLOWED_ORIGINS=https://SEU-FRONTEND`.
-3. Com Docker: build automático via `Dockerfile` (`gunicorn app:app`).
-   Sem Docker (Render): Build `pip install -r requirements.txt`,
-   Start `gunicorn app:app --bind 0.0.0.0:$PORT --workers 2 --timeout 70`.
-4. Teste `https://SEU-BACKEND/api/health`.
+### Render
 
-**Frontend (Vercel / Netlify):**
-- Se o Flask servir tudo, nem precisa separar. Para separar:
-  Vercel/Netlify com a pasta como estática e `URL_BACKEND` em `api.js`
-  apontando p/ `https://SEU-BACKEND/api/gemini`, com `ALLOWED_ORIGINS`
-  liberando o domínio do frontend. Use sempre HTTPS.
+`render.yaml` usa o runtime Python nativo, Gunicorn `gthread`, um processo, até oito streams simultâneos, porta injetada pela plataforma e `/api/health` como readiness check. Configure `GEMINI_KEY` no painel; não coloque o valor no repositório.
+
+### Docker
+
+O container respeita `PORT` e usa `5000` somente como fallback:
+
+```bash
+docker build -t conecta-carreira .
+docker run --rm -p 5000:5000 --env-file .env conecta-carreira
+```
+
+Em provedores que injetam outra porta, exponha a mesma variável `PORT` no serviço.
+
+### Gunicorn sem Docker
+
+```bash
+gunicorn app:app --bind 0.0.0.0:$PORT --worker-class gthread --threads 12 --workers 1 --timeout 150
+```
+
+O processo único mantém o rate-limit em memória consistente; as threads permitem atender health checks durante streams. Antes de aumentar processos ou instâncias, implemente armazenamento compartilhado.

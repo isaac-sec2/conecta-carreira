@@ -1,196 +1,367 @@
-"""
-Conecta Carreira — Backend Python (Flask)
-Esconde a GEMINI_KEY no servidor. O frontend NUNCA vê a chave.
+"""Conecta Carreira — backend Flask com proxy seguro para a API Gemini."""
 
-Rodar:
-    pip install -r requirements.txt
-    cp .env.example .env   # e coloque sua chave
-    python app.py
-
-Aí abra: http://localhost:5000
-"""
-
+import ipaddress
 import logging
+import math
 import os
+import threading
 import time
-from collections import defaultdict, deque
+from collections import OrderedDict, deque
+from urllib.parse import quote, urlsplit
 
 import requests
-from flask import Flask, request, Response, jsonify, send_from_directory
-from flask_cors import CORS
 from dotenv import load_dotenv
+from flask import Flask, Response, jsonify, request, send_from_directory
+from flask_cors import CORS
+from werkzeug.exceptions import RequestEntityTooLarge
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 load_dotenv()
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 log = logging.getLogger("conecta")
 
-VERSAO = "1.1.0"
-INICIO = time.time()
+VERSAO = "2.0.0"
+INICIO = time.monotonic()
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+PUBLIC_FILES = frozenset({"index.html", "style.css", "script.js", "api.js"})
+MAX_CONTENT_LENGTH = 64 * 1024
+PROMPT_MAX_CHARS = 12000
+
+
+def _env_int(name: str, default: int, minimum: int, maximum: int) -> int:
+    raw = os.getenv(name, str(default)).strip()
+    try:
+        value = int(raw)
+    except (TypeError, ValueError) as error:
+        raise RuntimeError(f"{name} deve ser um número inteiro.") from error
+    if not minimum <= value <= maximum:
+        raise RuntimeError(f"{name} deve estar entre {minimum} e {maximum}.")
+    return value
+
+
+def _env_bool(name: str, default: bool = False) -> bool:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    value = raw.strip().lower()
+    if value in {"1", "true", "yes", "on"}:
+        return True
+    if value in {"0", "false", "no", "off"}:
+        return False
+    raise RuntimeError(f"{name} deve ser true ou false.")
+
+
+def _normalize_origin(value: str) -> str:
+    value = value.strip().rstrip("/")
+    try:
+        parsed = urlsplit(value)
+    except ValueError as error:
+        raise RuntimeError("ALLOWED_ORIGINS deve conter URLs http ou https.") from error
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        raise RuntimeError("ALLOWED_ORIGINS deve conter URLs http ou https.")
+    if parsed.path or parsed.query or parsed.fragment:
+        raise RuntimeError("ALLOWED_ORIGINS não pode conter caminho, query ou fragmento.")
+    return f"{parsed.scheme}://{parsed.netloc}".lower()
+
+
+def _parse_origins(raw: str) -> tuple[str, ...]:
+    if not raw.strip():
+        return ()
+    items = [value.strip() for value in raw.split(",") if value.strip()]
+    if "*" in items:
+        if len(items) != 1:
+            raise RuntimeError("Use '*' sozinho em ALLOWED_ORIGINS.")
+        return ("*",)
+    return tuple(_normalize_origin(value) for value in items)
+
 
 GEMINI_KEY = os.getenv("GEMINI_KEY", "").strip()
 MODELO = os.getenv("GEMINI_MODEL", "gemini-2.5-flash-lite").strip()
-PORT = int(os.getenv("PORT", "5000"))
+if not MODELO:
+    raise RuntimeError("GEMINI_MODEL nao pode ficar vazio.")
+PORT = _env_int("PORT", 5000, 1, 65535)
+RATE_MAX = _env_int("RATE_LIMIT_MAX", 20, 1, 10000)
+RATE_JANELA = _env_int("RATE_LIMIT_WINDOW", 60, 1, 86400)
+RATE_MAX_KEYS = _env_int("RATE_LIMIT_MAX_KEYS", 10000, 100, 100000)
+MAX_STREAMS = _env_int("MAX_STREAMS", 8, 1, 128)
+TRUST_PROXY = _env_bool("TRUST_PROXY", False)
+CLIENT_IP_HEADER = os.getenv("CLIENT_IP_HEADER", "").strip().lower()
+if CLIENT_IP_HEADER and not CLIENT_IP_HEADER.replace("-", "").isalnum():
+    raise RuntimeError("CLIENT_IP_HEADER deve conter apenas letras e hífens.")
+ORIGINS = _parse_origins(os.getenv("ALLOWED_ORIGINS", os.getenv("ALLOWED_ORIGIN", "")))
 
-# CORS restrito: lista separada por vírgula. Ex:
-#   ALLOWED_ORIGINS=http://localhost:5000,https://seu-site.vercel.app
-# Se vazio, libera geral (dev) mas avisa no log.
-_raw_origins = os.getenv("ALLOWED_ORIGINS", os.getenv("ALLOWED_ORIGIN", "")).strip()
-if _raw_origins in ("", "*"):
-    ORIGINS = "*"
-    if not _raw_origins:
-        log.warning("ALLOWED_ORIGINS vazio: liberando CORS geral (ok p/ dev, restrinja em produção).")
-else:
-    ORIGINS = [o.strip() for o in _raw_origins.split(",") if o.strip()]
+_reqs_por_ip: OrderedDict[str, deque[float]] = OrderedDict()
+_rate_lock = threading.Lock()
+_stream_slots = threading.BoundedSemaphore(MAX_STREAMS)
+_last_rate_cleanup = 0.0
 
-# Rate limit simples em memória: 20 req/min por IP em /api/gemini
-RATE_MAX = int(os.getenv("RATE_LIMIT_MAX", "20"))
-RATE_JANELA = int(os.getenv("RATE_LIMIT_WINDOW", "60"))
-_reqs_por_ip: dict[str, deque] = defaultdict(deque)
-
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-
-# static_folder=None de propósito: o Flask serviria .env sozinho.
-# Servimos os arquivos manualmente em static_files() com bloqueio.
 app = Flask(__name__, static_folder=None)
-CORS(app, resources={r"/api/*": {"origins": ORIGINS}})
+app.config["MAX_CONTENT_LENGTH"] = MAX_CONTENT_LENGTH
+CORS(
+    app,
+    resources={r"/api/*": {"origins": list(ORIGINS)}},
+    supports_credentials=False,
+)
+
+if TRUST_PROXY:
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=0, x_proto=1, x_host=1)
+
+
+def _canonical_ip(value: str | None) -> str:
+    if not value:
+        return "unknown"
+    try:
+        return str(ipaddress.ip_address(value.strip()))
+    except ValueError:
+        return "unknown"
 
 
 def ip_cliente() -> str:
-    return request.headers.get("X-Forwarded-For", request.remote_addr or "?").split(",")[0].strip()
+    if TRUST_PROXY and CLIENT_IP_HEADER:
+        return _canonical_ip(request.headers.get(CLIENT_IP_HEADER))
+    return _canonical_ip(request.remote_addr)
+
+
+def _cleanup_rate_keys(now: float) -> None:
+    global _last_rate_cleanup
+    if now - _last_rate_cleanup < min(5.0, float(RATE_JANELA)):
+        return
+    expired = [ip for ip, queue in _reqs_por_ip.items() if not queue or queue[0] <= now - RATE_JANELA]
+    for ip in expired:
+        _reqs_por_ip.pop(ip, None)
+    _last_rate_cleanup = now
 
 
 def checar_rate_limit(ip: str) -> tuple[bool, int]:
-    """Retorna (permitido, segundos_para_retry)."""
-    agora = time.time()
-    fila = _reqs_por_ip[ip]
-    while fila and fila[0] <= agora - RATE_JANELA:
-        fila.popleft()
-    if len(fila) >= RATE_MAX:
-        retry = int(fila[0] + RATE_JANELA - agora) + 1
-        return False, max(retry, 1)
-    fila.append(agora)
-    return True, 0
+    now = time.monotonic()
+    with _rate_lock:
+        _cleanup_rate_keys(now)
+        queue = _reqs_por_ip.get(ip)
+        if queue is None:
+            queue = deque()
+            _reqs_por_ip[ip] = queue
+        else:
+            _reqs_por_ip.move_to_end(ip)
+        while queue and queue[0] <= now - RATE_JANELA:
+            queue.popleft()
+        if len(queue) >= RATE_MAX:
+            retry = max(1, math.ceil(queue[0] + RATE_JANELA - now))
+            return False, retry
+        queue.append(now)
+        while len(_reqs_por_ip) > RATE_MAX_KEYS:
+            _reqs_por_ip.popitem(last=False)
+        return True, 0
+
+
+def _erro_validacao(campo: str, esperado: str) -> tuple[str, int, float, str]:
+    return "", 0, 0.0, f"Campo '{campo}' inválido ({esperado})."
 
 
 def validar_entrada(dados: dict) -> tuple[str, int, float, str]:
-    """Valida e normaliza prompt/maxTokens/temperature. Retorna (prompt, max, temp, erro)."""
-    prompt = str(dados.get("prompt", "")).strip()
+    prompt = dados.get("prompt")
+    if not isinstance(prompt, str):
+        return _erro_validacao("prompt", "use texto")
+    prompt = prompt.strip()
     if not prompt:
         return "", 0, 0.0, "Campo 'prompt' vazio. Preencha os campos obrigatórios no formulário."
-    if len(prompt) > 12000:
-        return "", 0, 0.0, f"Prompt muito longo ({len(prompt)} caracteres, máx 12000). Resuma a descrição da vaga."
+    if len(prompt) > PROMPT_MAX_CHARS:
+        return "", 0, 0.0, f"Prompt muito longo ({len(prompt)} caracteres, máx {PROMPT_MAX_CHARS}). Resuma os dados."
 
-    try:
-        max_tokens = int(dados.get("maxTokens", 1024))
-    except (TypeError, ValueError):
-        return "", 0, 0.0, "maxTokens inválido (use um número inteiro)."
-    try:
-        temperature = float(dados.get("temperature", 0.7))
-    except (TypeError, ValueError):
-        return "", 0, 0.0, "temperature inválida (use um número entre 0 e 1)."
-
+    max_tokens = dados.get("maxTokens", 1024)
+    if isinstance(max_tokens, bool) or not isinstance(max_tokens, int):
+        return _erro_validacao("maxTokens", "use um número inteiro")
     if not 1 <= max_tokens <= 4096:
         return "", 0, 0.0, "maxTokens fora do intervalo permitido (1 a 4096)."
-    if not 0.0 <= temperature <= 1.0:
+
+    temperature = dados.get("temperature", 0.7)
+    if isinstance(temperature, bool) or not isinstance(temperature, (int, float)):
+        return _erro_validacao("temperature", "use um número")
+    temperature = float(temperature)
+    if not math.isfinite(temperature) or not 0.0 <= temperature <= 1.0:
         return "", 0, 0.0, "temperature fora do intervalo permitido (0 a 1)."
 
     return prompt, max_tokens, temperature, ""
 
 
-def erro_amigavel(status: int, detalhe: str) -> str:
-    d = (detalhe or "").lower()
-    if status == 400 and "api key" in d:
-        return "Chave da IA inválida no servidor. Avise o responsável pelo projeto."
-    if status in (401, 403):
+def _contents_to_payload(dados: dict) -> dict:
+    contents = dados.get("contents")
+    if not isinstance(contents, list):
+        raise TypeError("'contents' deve ser uma lista.")
+    if not contents:
+        raise ValueError("'contents' deve ser uma lista não vazia.")
+    textos: list[str] = []
+    for content in contents:
+        if not isinstance(content, dict) or not isinstance(content.get("parts"), list):
+            raise TypeError("Cada item de 'contents' deve conter uma lista 'parts'.")
+        for part in content["parts"]:
+            if not isinstance(part, dict) or not isinstance(part.get("text"), str):
+                raise TypeError("Cada parte de 'contents' deve conter texto.")
+            textos.append(part["text"])
+    if not any(texto.strip() for texto in textos):
+        raise ValueError("'contents' não contém texto válido.")
+
+    generation_config = dados.get("generationConfig", {})
+    if generation_config is None or not isinstance(generation_config, dict):
+        raise ValueError("'generationConfig' deve ser um objeto.")
+    return {
+        "prompt": "\n".join(textos),
+        "maxTokens": generation_config.get("maxOutputTokens", 1024),
+        "temperature": generation_config.get("temperature", 0.7),
+    }
+
+
+def erro_amigavel(status: int) -> str:
+    if status == 400:
+        return "A requisição foi recusada pelo serviço de IA."
+    if status in {401, 403}:
         return "Chave da IA inválida ou sem permissão. Avise o responsável pelo projeto."
     if status == 404:
-        return "Modelo da IA não encontrado. O servidor pode estar com o nome do modelo desatualizado."
+        return "Modelo da IA não encontrado. Verifique a configuração do servidor."
     if status == 429:
-        return "Muitas pessoas usando a IA agora (limite do Google). Aguarde 1 minuto e tente de novo."
-    if status in (500, 502, 503, 504):
-        return "O Google IA está instável agora. Aguarde alguns segundos e tente novamente."
-    return detalhe or f"Erro HTTP {status}"
+        return "Muitas pessoas usando a IA agora. Aguarde um minuto e tente novamente."
+    if status in {500, 502, 503, 504}:
+        return "A IA está instável agora. Aguarde alguns segundos e tente novamente."
+    return f"O serviço de IA respondeu com erro {status}."
 
 
-# ---------- Frontend estático ----------
-@app.route("/")
+def _safe_retry_after(value: str | None) -> str | None:
+    if not value:
+        return None
+    value = value.strip()
+    if len(value) > 128:
+        return None
+    if value.isdigit() or (value[:1].isdigit() and value[-1:].isdigit() and " " in value):
+        return value
+    return None
+
+
+def _origin_allowed() -> bool:
+    origin = request.headers.get("Origin", "").strip().rstrip("/")
+    if not origin:
+        return True
+    if "*" in ORIGINS:
+        return True
+    try:
+        normalized = _normalize_origin(origin)
+    except RuntimeError:
+        return False
+    if normalized in ORIGINS:
+        return True
+    parsed = urlsplit(normalized)
+    same_origin = parsed.netloc.lower() == request.host.lower() and parsed.scheme.lower() == request.scheme.lower()
+    return same_origin
+
+
+@app.before_request
+def enforce_origin():
+    if request.path.startswith("/api/") and not _origin_allowed():
+        return jsonify({"erro": "Origem não autorizada."}), 403
+    return None
+
+
+@app.after_request
+def ensure_security_headers(response):
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "DENY")
+    response.headers.setdefault("Referrer-Policy", "no-referrer")
+    response.headers.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+    response.headers.setdefault("Content-Security-Policy", "frame-ancestors 'none'; object-src 'none'; base-uri 'self'")
+    if request.path.startswith("/api/"):
+        vary = {value.strip() for value in response.headers.get("Vary", "").split(",") if value.strip()}
+        vary.add("Origin")
+        response.headers["Vary"] = ", ".join(sorted(vary))
+    return response
+
+
+@app.errorhandler(RequestEntityTooLarge)
+def payload_too_large(_error):
+    return jsonify({"erro": "Corpo da requisição grande demais."}), 413
+
+
+@app.get("/")
 def index():
     return send_from_directory(BASE_DIR, "index.html")
 
 
-@app.route("/<path:filename>")
+@app.get("/<path:filename>")
 def static_files(filename):
-    # Nunca servir segredos ou código do servidor
-    if filename in (".env", "app.py", ".gitignore"):
+    if filename not in PUBLIC_FILES or "/" in filename or "\\" in filename:
         return jsonify({"erro": "Não encontrado"}), 404
-    full = os.path.join(BASE_DIR, filename)
-    if os.path.isfile(full):
-        return send_from_directory(BASE_DIR, filename)
-    return jsonify({"erro": "Não encontrado"}), 404
+    return send_from_directory(BASE_DIR, filename)
 
 
-# ---------- Status detalhado ----------
-@app.route("/api/health", methods=["GET"])
-@app.route("/api/status", methods=["GET"])
+@app.get("/api/health")
+@app.get("/api/status")
 def health():
+    ready = bool(GEMINI_KEY)
     return jsonify({
-        "ok": True,
+        "ok": ready,
+        "ready": ready,
         "versao": VERSAO,
         "modelo": MODELO,
-        "chave_configurada": bool(GEMINI_KEY),
-        "uptime_segundos": int(time.time() - INICIO),
+        "chave_configurada": ready,
+        "uptime_segundos": int(time.monotonic() - INICIO),
         "limites": {
             "max_tokens": [1, 4096],
             "temperature": [0.0, 1.0],
-            "prompt_max_chars": 12000,
+            "prompt_max_chars": PROMPT_MAX_CHARS,
             "requisicoes_por_minuto_por_ip": RATE_MAX,
         },
-        "cors": ORIGINS if isinstance(ORIGINS, str) else ORIGINS,
-    })
+        "cors": list(ORIGINS),
+    }), 200 if ready else 503
 
 
-# ---------- Proxy Gemini com streaming SSE ----------
 @app.route("/api/gemini", methods=["POST", "OPTIONS"])
 def gemini():
-    ip = ip_cliente()
-    permitido, retry = checar_rate_limit(ip)
-    if not permitido:
-        log.warning("Rate limit excedido ip=%s", ip)
-        resp = jsonify({"erro": f"Muitas requisições. Aguarde {retry}s e tente novamente."})
-        resp.status_code = 429
-        resp.headers["Retry-After"] = str(retry)
-        return resp
+    if request.method == "OPTIONS":
+        return "", 204
 
     if not GEMINI_KEY:
-        log.error("GEMINI_KEY ausente (ip=%s)", ip)
+        log.error("GEMINI_KEY ausente (ip=%s)", ip_cliente())
         return jsonify({
-            "erro": "Serviço de IA não configurado (chave ausente no servidor). "
-                    "Avise o responsável pelo projeto.",
+            "erro": "Serviço de IA não configurado (chave ausente no servidor). Avise o responsável pelo projeto.",
             "codigo": "SEM_CHAVE",
-        }), 500
+        }), 503
+
+    if not request.is_json:
+        return jsonify({"erro": "Envie Content-Type: application/json."}), 415
 
     try:
-        dados = request.get_json(force=True)
-    except Exception:
-        return jsonify({"erro": "Corpo JSON inválido. Recarregue a página e tente de novo."}), 400
-
+        dados = request.get_json()
+    except (ValueError, TypeError, RecursionError):
+        return jsonify({"erro": "Corpo JSON inválido."}), 400
     if not isinstance(dados, dict):
-        return jsonify({"erro": "Envie {prompt, maxTokens?, temperature?}."}), 400
+        return jsonify({"erro": "Envie um objeto JSON válido."}), 400
 
-    # Compat: aceita formato Gemini direto convertendo p/ simplificado
     if "prompt" not in dados and "contents" in dados:
         try:
-            prompt_extraido = dados["contents"][0]["parts"][0]["text"]
-            dados = {"prompt": prompt_extraido,
-                     "maxTokens": dados.get("generationConfig", {}).get("maxOutputTokens", 1024),
-                     "temperature": dados.get("generationConfig", {}).get("temperature", 0.7)}
-        except (KeyError, IndexError, TypeError):
-            return jsonify({"erro": "Formato 'contents' inválido."}), 400
+            dados = _contents_to_payload(dados)
+        except (TypeError, ValueError) as error:
+            return jsonify({"erro": f"Formato Gemini inválido: {error}"}), 400
 
     prompt, max_tokens, temperature, erro = validar_entrada(dados)
     if erro:
         return jsonify({"erro": erro}), 400
+
+    ip = ip_cliente()
+    permitido, retry = checar_rate_limit(ip)
+    if not permitido:
+        log.warning("Rate limit excedido ip=%s", ip)
+        response = jsonify({"erro": f"Muitas requisições. Aguarde {retry}s e tente novamente."})
+        response.status_code = 429
+        response.headers["Retry-After"] = str(retry)
+        return response
+
+    if not _stream_slots.acquire(blocking=False):
+        return jsonify({"erro": "A IA está ocupada. Tente novamente em alguns instantes."}), 503
+    slot_released = False
+
+    def liberar_stream() -> None:
+        nonlocal slot_released
+        if not slot_released:
+            _stream_slots.release()
+            slot_released = True
 
     corpo_gemini = {
         "contents": [{"parts": [{"text": prompt}]}],
@@ -203,56 +374,87 @@ def gemini():
             {"category": "HARM_CATEGORY_CIVIC_INTEGRITY", "threshold": "BLOCK_ONLY_HIGH"},
         ],
     }
-
-    url = (
-        "https://generativelanguage.googleapis.com/v1beta/models/"
-        f"{MODELO}:streamGenerateContent?alt=sse&key={GEMINI_KEY}"
-    )
+    model_segment = quote(MODELO, safe="")
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_segment}:streamGenerateContent?alt=sse"
 
     try:
-        upstream = requests.post(url, json=corpo_gemini, stream=True, timeout=65)
+        upstream = requests.post(
+            url,
+            headers={"x-goog-api-key": GEMINI_KEY},
+            json=corpo_gemini,
+            stream=True,
+            timeout=(10, 65),
+        )
     except requests.exceptions.Timeout:
+        liberar_stream()
         log.warning("Timeout Google ip=%s prompt=%d chars", ip, len(prompt))
-        return jsonify({"erro": "A IA demorou demais para responder. Verifique sua internet e tente de novo."}), 504
-    except requests.exceptions.RequestException as e:
-        log.warning("Falha conexão Google ip=%s err=%s", ip, type(e).__name__)
-        return jsonify({"erro": "Falha de conexão com a IA. Verifique sua internet e tente de novo."}), 502
+        return jsonify({"erro": "A IA demorou demais para responder. Tente novamente."}), 504
+    except requests.exceptions.RequestException as error:
+        liberar_stream()
+        log.warning("Falha de conexão Google ip=%s err=%s", ip, type(error).__name__)
+        return jsonify({"erro": "Falha de conexão com a IA. Tente novamente."}), 502
 
     if upstream.status_code != 200:
         try:
-            detalhe = upstream.json().get("error", {}).get("message", f"Erro HTTP {upstream.status_code}")
-        except Exception:
-            detalhe = f"Erro HTTP {upstream.status_code}"
-        # Log SEM a chave: só status + prefixo do detalhe
-        log.warning("Google erro status=%s detalhe=%.120s ip=%s", upstream.status_code, detalhe, ip)
-        upstream.close()
-        return jsonify({"erro": erro_amigavel(upstream.status_code, detalhe)}), upstream.status_code
+            upstream.close()
+        finally:
+            liberar_stream()
+        log.warning("Google erro status=%s ip=%s", upstream.status_code, ip)
+        response = jsonify({"erro": erro_amigavel(upstream.status_code)})
+        response.status_code = upstream.status_code
+        retry_after = _safe_retry_after(upstream.headers.get("Retry-After"))
+        if retry_after:
+            response.headers["Retry-After"] = retry_after
+        return response
 
     log.info("Gemini ok ip=%s prompt=%d chars max=%d temp=%.2f", ip, len(prompt), max_tokens, temperature)
 
     def gerar():
+        pending: list[bytes] = []
+        pending_size = 0
         try:
-            for chunk in upstream.iter_content(chunk_size=4096):
-                if chunk:
-                    yield chunk
+            for line in upstream.iter_lines(chunk_size=4096, decode_unicode=False):
+                line_size = len(line) + 1
+                if pending_size + line_size > 1024 * 1024:
+                    yield b'event: error\ndata: {"erro":"O evento da IA excedeu o limite permitido.","status":502}\n\n'
+                    return
+                pending.append(line + b"\n")
+                pending_size += line_size
+                if not line:
+                    event = b"".join(pending)
+                    pending = []
+                    pending_size = 0
+                    yield event
+            if pending:
+                yield b"".join(pending)
+        except requests.exceptions.RequestException as error:
+            log.warning("Stream Google interrompido ip=%s err=%s", ip, type(error).__name__)
+            yield b'event: error\ndata: {"erro":"A conexao com a IA foi interrompida. Tente novamente.","status":502}\n\n'
         finally:
-            upstream.close()
+            try:
+                upstream.close()
+            finally:
+                liberar_stream()
 
-    origin = request.headers.get("Origin", ORIGINS if isinstance(ORIGINS, str) else (ORIGINS[0] if ORIGINS else "*"))
-    return Response(
+    response = Response(
         gerar(),
         status=200,
         mimetype="text/event-stream",
         headers={
-            "Cache-Control": "no-cache",
+            "Cache-Control": "no-cache, no-transform",
             "X-Accel-Buffering": "no",
-            "Access-Control-Allow-Origin": origin,
         },
     )
+    response.call_on_close(liberar_stream)
+    return response
 
 
 if __name__ == "__main__":
     if not GEMINI_KEY:
-        print("⚠️  AVISO: GEMINI_KEY não encontrada. Crie um .env (veja .env.example).")
-    print(f"🚀 Conecta Carreira v{VERSAO} em http://localhost:{PORT}")
-    app.run(host="0.0.0.0", port=PORT, debug=True)
+        log.warning("GEMINI_KEY nao encontrada; veja .env.example")
+    log.info("Conecta Carreira v%s em http://localhost:%s", VERSAO, PORT)
+    app.run(
+        host=os.getenv("HOST", "127.0.0.1"),
+        port=PORT,
+        debug=_env_bool("FLASK_DEBUG", False),
+    )

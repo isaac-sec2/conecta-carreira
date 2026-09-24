@@ -26,7 +26,7 @@
   --card-foreground: oklch(0.22 0.04 185);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.22 0.04 185);
-  --primary: oklch(0.52 0.12 182);
+  --primary: oklch(0.46 0.11 182);
   --primary-foreground: oklch(0.99 0.005 180);
   --primary-glow: oklch(0.7 0.12 178);
   --secondary: oklch(0.95 0.02 180);
@@ -336,6 +336,14 @@ h1, h2, h3, h4 {
   transform: scale(0.98);
 }
 
+.btn:disabled,
+button:disabled,
+select:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+  transform: none;
+}
+
 .btn-branco {
   background: #fff;
   color: var(--primary);
@@ -359,7 +367,7 @@ h1, h2, h3, h4 {
 }
 
 .btn-primario {
-  background-image: var(--gradient-primary);
+  background: var(--primary);
   color: var(--primary-foreground);
   width: 100%;
   margin-top: 20px;
@@ -376,7 +384,7 @@ h1, h2, h3, h4 {
   color: var(--background);
   padding: 10px 22px;
   font-size: 0.88rem;
-  display: none;
+  display: inline-flex;
 }
 
 .btn-enviar {
@@ -545,8 +553,8 @@ section {
 }
 
 .tab-btn.active {
-  background-image: var(--gradient-primary);
-  color: #fff;
+  background: var(--primary);
+  color: var(--primary-foreground);
   box-shadow: var(--shadow-glow);
 }
 
@@ -779,7 +787,7 @@ textarea {
 }
 
 .msg-user {
-  background: var(--gradient-primary);
+  background: var(--primary);
   color: var(--primary-foreground);
   align-self: flex-end;
   border-bottom-right-radius: 4px;
@@ -1024,7 +1032,8 @@ textarea {
   .form-group { margin-bottom: 0; }
   .form-group.has-error input,
   .form-group.has-error textarea,
-  .form-group.has-error select {
+  .form-group.has-error select,
+  [aria-invalid="true"] {
     border-color: var(--destructive);
     box-shadow: 0 0 0 3px color-mix(in oklab, var(--destructive) 15%, transparent);
   }
@@ -1350,4 +1359,55 @@ footer a:hover {
   .msg { max-width: 95%; }
   .container { padding: 0 14px; }
   #toast-container { left: 14px; right: 14px; max-width: none; }
+}
+
+.resultado,
+.curriculo-markdown,
+.chat-box,
+.msg,
+.toast__content,
+.empty-state__desc {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.curriculo-markdown pre,
+.msg pre {
+  max-width: 100%;
+  overflow-x: auto;
+  white-space: pre-wrap;
+}
+
+.curriculo-header a,
+.curriculo-markdown a,
+.msg a {
+  overflow-wrap: anywhere;
+}
+
+.btn-copiar.copiado {
+  background: var(--success);
+  color: var(--success-foreground);
+}
+
+input:disabled,
+textarea:disabled,
+select:disabled {
+  cursor: not-allowed;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .btn:hover,
+  .card:hover,
+  .botao-tema:hover {
+    transform: none;
+  }
 }

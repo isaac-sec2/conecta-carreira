@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Conecta Carreira — Currículo e Entrevista com IA, de graça</title>
   <meta name="description" content="Projeto de extensão: ferramentas gratuitas com IA para jovens criarem currículo e treinarem para entrevistas de emprego.">
+  <meta name="api-base-url" content="">
 
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -12,11 +13,12 @@
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
   <!-- Lucide Icons -->
-  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://unpkg.com/lucide@0.468.0" integrity="sha384-uTYyvsSSUZeaPhb5RbKlQa0zY/WpX/QHfvg2mczXyBQOpkWPEDy9lczyp+w7SKXu" crossorigin="anonymous"></script>
 
   <script>
     (function () {
-      var temaSalvo = localStorage.getItem('conecta-carreira-tema');
+      var temaSalvo = null;
+      try { temaSalvo = localStorage.getItem('conecta-carreira-tema'); } catch (e) { }
       if (temaSalvo === 'escuro') {
         document.documentElement.setAttribute('data-tema', 'escuro');
       }
@@ -59,94 +61,99 @@
   </div>
 
   <!-- ===== FERRAMENTAS ===== -->
-  <section id="ferramentas">
+  <section id="ferramentas" tabindex="-1">
     <div class="container">
       <h2 class="titulo-secao reveal">Nossas ferramentas</h2>
       <p class="subtitulo-secao reveal">Escolha por onde começar <i data-lucide="chevron-down" aria-hidden="true"></i></p>
 
       <div class="tabs glass" role="tablist" aria-label="Ferramentas">
-        <button class="tab-btn active" role="tab" aria-selected="true" aria-controls="curriculo-panel" type="button" data-tab="curriculo"><i data-lucide="file-text" aria-hidden="true"></i> Gerador de Currículo</button>
-        <button class="tab-btn" role="tab" aria-selected="false" aria-controls="entrevista-panel" type="button" data-tab="entrevista"><i data-lucide="message-square" aria-hidden="true"></i> Simulador de Entrevista</button>
+        <button id="tab-curriculo" class="tab-btn active" role="tab" aria-selected="true" aria-controls="curriculo-panel" type="button" data-tab="curriculo"><i data-lucide="file-text" aria-hidden="true"></i> Gerador de Currículo</button>
+        <button id="tab-entrevista" class="tab-btn" role="tab" aria-selected="false" aria-controls="entrevista-panel" type="button" tabindex="-1" data-tab="entrevista"><i data-lucide="message-square" aria-hidden="true"></i> Simulador de Entrevista</button>
       </div>
 
       <div class="tab-panels">
 
         <!-- PANEL CURRÍCULO -->
-        <div class="tab-panel active" id="curriculo-panel" role="tabpanel">
+        <div class="tab-panel active" id="curriculo-panel" role="tabpanel" aria-labelledby="tab-curriculo" tabindex="0">
           <div class="card card-panel shadow-glow">
             <div class="card-badge"><i data-lucide="zap" aria-hidden="true"></i> IA + carreira</div>
-            <h3><span class="card-emoji" aria-hidden="true"><i data-lucide="file-text"></i></span> Gerador de Currículo com IA</h3>
+            <h3 id="curriculo-titulo"><span class="card-emoji" aria-hidden="true"><i data-lucide="file-text"></i></span> Gerador de Currículo com IA</h3>
 
             <div class="form-group">
               <label for="nome">Nome completo <span aria-hidden="true">*</span></label>
-              <input type="text" id="nome" placeholder="Ex.: Sálvio Sérgio" required aria-required="true">
-              <div class="form-error" id="err-nome" hidden></div>
+              <input type="text" id="nome" placeholder="Ex.: Sálvio Sérgio" maxlength="120" required aria-required="true" aria-invalid="false" aria-describedby="err-nome">
+              <div class="form-error" role="alert" id="err-nome" hidden></div>
             </div>
 
             <div class="form-group">
               <label for="contato">Contato (email / telefone)</label>
-              <input type="text" id="contato" placeholder="maria@email.com | (11) 99999-0000">
-              <div class="form-error" id="err-contato" hidden></div>
+              <input type="text" id="contato" placeholder="maria@email.com | +55 (11) 99999-0000" maxlength="160" aria-invalid="false" aria-describedby="err-contato">
+              <div class="form-error" role="alert" id="err-contato" hidden></div>
             </div>
 
             <div class="form-group">
-              <label>Links profissionais <span style="font-weight:400; color:var(--muted-foreground)">(opcional)</span></label>
-              <input type="url" id="linkedin" placeholder="LinkedIn: linkedin.com/in/seu-nome">
-              <input type="url" id="github" placeholder="GitHub: github.com/seu-usuario" style="margin-top:10px">
+              <label for="linkedin">LinkedIn <span style="font-weight:400; color:var(--muted-foreground)">(opcional)</span></label>
+              <input type="url" id="linkedin" placeholder="linkedin.com/in/seu-nome" maxlength="500" aria-invalid="false" aria-describedby="err-linkedin">
+              <div class="form-error" role="alert" id="err-linkedin" hidden></div>
+              <label for="github" style="margin-top:10px">GitHub <span style="font-weight:400; color:var(--muted-foreground)">(opcional)</span></label>
+              <input type="url" id="github" placeholder="github.com/seu-usuario" maxlength="500" aria-invalid="false" aria-describedby="err-github">
+              <div class="form-error" role="alert" id="err-github" hidden></div>
             </div>
 
             <div class="form-group">
-              <label>Informações adicionais <span style="font-weight:400; color:var(--muted-foreground)">(opcional)</span></label>
-              <input type="text" id="cidade" placeholder="Cidade">
-              <input type="text" id="estado" placeholder="Estado (UF)" maxlength="40" style="margin-top:10px">
-              <input type="text" id="idioma" placeholder="Idioma e nível: ex. Inglês intermediário" style="margin-top:10px">
+              <label for="cidade">Cidade <span style="font-weight:400; color:var(--muted-foreground)">(opcional)</span></label>
+              <input type="text" id="cidade" placeholder="Cidade" maxlength="100" aria-label="Cidade">
+              <label for="estado" style="margin-top:10px">Estado <span style="font-weight:400; color:var(--muted-foreground)">(opcional)</span></label>
+              <input type="text" id="estado" placeholder="Estado (UF)" maxlength="40" aria-label="Estado">
+              <label for="idioma" style="margin-top:10px">Idioma e nível <span style="font-weight:400; color:var(--muted-foreground)">(opcional)</span></label>
+              <input type="text" id="idioma" aria-label="Idioma e nível" placeholder="Idioma e nível: ex. Inglês intermediário" maxlength="120" style="margin-top:10px">
             </div>
 
             <div class="form-group">
               <label for="formacao">Formação</label>
-              <input type="text" id="formacao" placeholder="Ex.: Ensino médio completo, cursando SI">
-              <div class="form-error" id="err-formacao" hidden></div>
+              <input type="text" id="formacao" placeholder="Ex.: Ensino médio completo, cursando SI" maxlength="300" aria-invalid="false" aria-describedby="err-formacao">
+              <div class="form-error" role="alert" id="err-formacao" hidden></div>
             </div>
 
             <div class="form-group">
               <label for="experiencia">Experiências e vivências <span style="font-weight:400; color:var(--muted-foreground)">(opcional)</span></label>
-              <textarea id="experiencia" placeholder="Vale emprego, trabalho informal, projeto escolar, voluntariado, organização de evento ou atividade em grupo..."></textarea>
-              <div class="form-error" id="err-experiencia" hidden></div>
+              <textarea id="experiencia" placeholder="Vale emprego, trabalho informal, projeto escolar, voluntariado, organização de evento ou atividade em grupo..." maxlength="1200" aria-invalid="false" aria-describedby="err-experiencia"></textarea>
+              <div class="form-error" role="alert" id="err-experiencia" hidden></div>
             </div>
 
             <div class="form-group">
               <label for="habilidades">Habilidades e cursos</label>
-              <textarea id="habilidades" placeholder="Ex.: Excel básico, comunicação, curso de informática..."></textarea>
-              <div class="form-error" id="err-habilidades" hidden></div>
+              <textarea id="habilidades" placeholder="Ex.: Excel básico, comunicação, curso de informática..." maxlength="1000" aria-invalid="false" aria-describedby="err-habilidades"></textarea>
+              <div class="form-error" role="alert" id="err-habilidades" hidden></div>
             </div>
 
             <div class="form-group">
               <label for="objetivo">Vaga que você busca <span aria-hidden="true">*</span></label>
-              <input type="text" id="objetivo" placeholder="Ex.: Jovem aprendiz em administração" required aria-required="true">
-              <div class="form-error" id="err-objetivo" hidden></div>
+              <input type="text" id="objetivo" placeholder="Ex.: Jovem aprendiz em administração" maxlength="200" required aria-required="true" aria-invalid="false" aria-describedby="err-objetivo">
+              <div class="form-error" role="alert" id="err-objetivo" hidden></div>
             </div>
 
             <div class="form-group">
               <label for="descricao-vaga">Descrição da vaga <span style="font-weight:400; color:var(--muted-foreground)">(opcional)</span></label>
-              <textarea id="descricao-vaga" placeholder="Cole aqui os requisitos e responsabilidades da vaga para personalizar o currículo..."></textarea>
+              <textarea id="descricao-vaga" placeholder="Cole aqui os requisitos e responsabilidades da vaga para personalizar o currículo..." maxlength="2500"></textarea>
             </div>
 
             <button class="btn btn-primario" id="btn-gerar" onclick="gerarCurriculo()"><i data-lucide="sparkles" aria-hidden="true"></i> Gerar currículo com IA</button>
             <button class="btn btn-secundario" id="btn-exemplo" type="button" onclick="preencherExemplo()" style="margin-top:10px"><i data-lucide="wand-2" aria-hidden="true"></i> Preencher com exemplo</button>
             <button class="btn btn-cancelar" id="btn-cancelar-curriculo" onclick="cancelarGeracao()" hidden><i data-lucide="x" aria-hidden="true"></i> Cancelar (Esc)</button>
 
-            <div class="progress-curriculo" id="progress-curriculo" hidden role="status" aria-live="polite">
+            <div class="progress-curriculo" id="progress-curriculo" hidden role="status" aria-live="off">
               <div class="progress-curriculo__bar" id="progress-curriculo-bar"></div>
               <span class="progress-curriculo__label" id="progress-curriculo-label">Gerando…</span>
             </div>
 
-            <div class="erro-box" id="erro-curriculo" hidden tabindex="-1" role="alert">
+            <div class="erro-box" id="erro-curriculo" hidden tabindex="-1" role="alert" aria-describedby="erro-curriculo-msg">
               <strong>Não foi possível gerar agora.</strong>
               <p id="erro-curriculo-msg"></p>
               <button class="btn btn-tentar" type="button" onclick="tentarNovamenteCurriculo()"><i data-lucide="rotate-ccw" aria-hidden="true"></i> Tentar novamente</button>
             </div>
 
-            <div class="resultado" id="resultado-curriculo" aria-live="polite"></div>
+            <div class="resultado" id="resultado-curriculo" aria-live="off" aria-busy="false"></div>
             <div class="resultado skeleton-loader" id="skeleton-curriculo" hidden aria-hidden="true">
               <div class="skeleton skeleton-title"></div>
               <div class="skeleton skeleton-text" style="width: 80%"></div>
@@ -166,13 +173,13 @@
         </div>
 
         <!-- PANEL ENTREVISTA -->
-        <div class="tab-panel" id="entrevista-panel" role="tabpanel">
+        <div class="tab-panel" id="entrevista-panel" role="tabpanel" aria-labelledby="tab-entrevista" aria-hidden="true" tabindex="0">
           <div class="card card-panel shadow-glow">
             <div class="card-badge"><i data-lucide="target" aria-hidden="true"></i> Treinamento realista</div>
-            <h3><span class="card-emoji" aria-hidden="true"><i data-lucide="message-square"></i></span> Simulador de Entrevista</h3>
+            <h3 id="entrevista-titulo"><span class="card-emoji" aria-hidden="true"><i data-lucide="message-square"></i></span> Simulador de Entrevista</h3>
 
             <label for="area">Escolha a área da entrevista</label>
-            <select id="area">
+            <select id="area" aria-describedby="entrevista-status">
               <option>Primeiro Emprego</option>
               <option>Administração</option>
               <option>Vendas</option>
@@ -197,7 +204,7 @@
 
             <button class="btn btn-primario" id="btn-iniciar" onclick="iniciarEntrevista()"><i data-lucide="play" aria-hidden="true"></i> Começar simulação</button>
 
-            <div class="chat-box chat-box--simulador" id="chat-box" aria-live="polite">
+            <div class="chat-box chat-box--simulador" id="chat-box" role="log" aria-live="off" aria-relevant="additions" aria-busy="false">
               <div class="empty-state" id="empty-state">
                 <div class="empty-state__icon" aria-hidden="true"><i data-lucide="message-square"></i></div>
                 <div class="empty-state__title">Simulação pronta para começar</div>
@@ -205,10 +212,12 @@
               </div>
             </div>
 
+            <p id="entrevista-status" class="sr-only" role="status" aria-live="polite"></p>
+
             <div class="chat-input" id="chat-input" hidden>
               <label for="resposta" class="sr-only">Sua resposta (Enter para enviar)</label>
-              <input type="text" id="resposta" placeholder="Digite sua resposta... (Enter envia)" autocomplete="off">
-              <button class="btn btn-enviar" onclick="enviarResposta()">Enviar</button>
+              <input type="text" id="resposta" placeholder="Digite sua resposta... (Enter envia)" maxlength="1500" autocomplete="off">
+              <button class="btn btn-enviar" id="btn-enviar" type="button" onclick="enviarResposta()">Enviar</button>
             </div>
 
             <button class="btn btn-cancelar" id="btn-cancelar-entrevista" onclick="cancelarEntrevista()" hidden><i data-lucide="x" aria-hidden="true"></i> Encerrar simulação (Esc)</button>
@@ -269,15 +278,20 @@
   <div id="toast-container" aria-live="polite" aria-atomic="true"></div>
 
   <!-- Scripts -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.5/purify.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js" integrity="sha384-/TQbtLCAerC3jgaim+N78RZSDYV7ryeoBCVqTuzRrFec2akfBkHS7ACQ3PQhvMVi" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.5/purify.min.js" integrity="sha384-nszIONF2FGC59kn+pPFaRa6WUNGwsZgXZiJxJwQbym+TzcH7smolUviLgpPbNx7V" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" integrity="sha384-JcnsjUPPylna1s1fvi1u12X5qjY5OL56iySh75FdtrwhO/SWXgMjoVqcKyIIWOLk" crossorigin="anonymous"></script>
   <script src="api.js"></script>
   <script src="script.js"></script>
 
   <!-- Scroll reveal simples -->
   <script>
     (function() {
+      const elementos = document.querySelectorAll('.reveal');
+      if (typeof IntersectionObserver !== 'function') {
+        elementos.forEach(elemento => elemento.classList.add('visible'));
+        return;
+      }
       const observer = new IntersectionObserver((entries) => {
         entries.forEach(entry => {
           if (entry.isIntersecting) {
@@ -286,8 +300,7 @@
           }
         });
       }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
-
-      document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+      elementos.forEach(elemento => observer.observe(elemento));
     })();
   </script>
 </body>

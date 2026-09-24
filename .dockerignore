@@ -1,6 +1,13 @@
-.env
-__pycache__/
-*.pyc
+.env*
+.git/
+.gitignore
 .venv/
 venv/
+__pycache__/
+*.py[cod]
 .pytest_cache/
+tests/
+Dockerfile
+.dockerignore
+render.yaml
+worker.js
