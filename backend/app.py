@@ -7,6 +7,7 @@ import os
 import threading
 import time
 from collections import OrderedDict, deque
+from pathlib import Path
 from urllib.parse import quote, urlsplit
 
 import requests
@@ -16,15 +17,16 @@ from flask_cors import CORS
 from werkzeug.exceptions import RequestEntityTooLarge
 from werkzeug.middleware.proxy_fix import ProxyFix
 
-load_dotenv()
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+PUBLIC_DIR = PROJECT_ROOT / "public"
+load_dotenv(PROJECT_ROOT / ".env")
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 log = logging.getLogger("conecta")
 
 VERSAO = "2.0.0"
 INICIO = time.monotonic()
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-PUBLIC_FILES = frozenset({"index.html", "style.css", "script.js", "api.js"})
+PUBLIC_FILES = frozenset({"index.html", "css/styles.css", "js/api.js", "js/app.js"})
 MAX_CONTENT_LENGTH = 64 * 1024
 PROMPT_MAX_CHARS = 12000
 
@@ -281,14 +283,14 @@ def payload_too_large(_error):
 
 @app.get("/")
 def index():
-    return send_from_directory(BASE_DIR, "index.html")
+    return send_from_directory(PUBLIC_DIR, "index.html")
 
 
 @app.get("/<path:filename>")
 def static_files(filename):
-    if filename not in PUBLIC_FILES or "/" in filename or "\\" in filename:
+    if filename not in PUBLIC_FILES or "\\" in filename:
         return jsonify({"erro": "Não encontrado"}), 404
-    return send_from_directory(BASE_DIR, filename)
+    return send_from_directory(PUBLIC_DIR, filename)
 
 
 @app.get("/api/health")

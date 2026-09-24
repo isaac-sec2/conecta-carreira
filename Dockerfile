@@ -12,4 +12,4 @@ COPY . .
 
 EXPOSE 5000
 
-CMD ["sh", "-c", "exec gunicorn --bind 0.0.0.0:${PORT:-5000} --worker-class gthread --threads 12 --workers 1 --timeout 150 app:app"]
+CMD ["sh", "-c", "exec gunicorn --bind 0.0.0.0:${PORT:-5000} --worker-class gthread --threads 12 --workers 1 --timeout 150 backend.app:app"]

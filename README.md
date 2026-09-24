@@ -12,18 +12,28 @@ Interface para gerar currículos e simular entrevistas com IA. A chave do Gemini
 ## Estrutura
 
 ```text
-├── index.html
-├── style.css
-├── script.js
-├── api.js
-├── app.py
-├── requirements.txt
+conecta-carreira/
+├── backend/
+│   └── app.py
+├── public/
+│   ├── index.html
+│   ├── css/
+│   │   └── styles.css
+│   └── js/
+│       ├── api.js
+│       └── app.js
+├── worker/
+│   └── worker.js
+├── tests/
+│   └── test_app.py
+├── .env.example
 ├── Dockerfile
 ├── render.yaml
-└── tests/test_app.py
+├── requirements.txt
+└── README.md
 ```
 
-O Flask serve somente `index.html`, `style.css`, `script.js` e `api.js`. Os demais arquivos do projeto não são acessíveis pela rota estática.
+O Flask serve somente os quatro assets dentro de `public/`. Backend, testes, configuração e arquivos de infraestrutura não ficam acessíveis pela rota estática.
 
 ## Rodar local
 
@@ -37,7 +47,7 @@ cp .env.example .env
 Preencha `GEMINI_KEY` no `.env` e execute:
 
 ```bash
-python app.py
+python -m backend.app
 ```
 
 Abra `http://localhost:5000`. O servidor local escuta apenas `127.0.0.1`; `FLASK_DEBUG` permanece falso por padrão.
@@ -69,7 +79,7 @@ A suíte não chama a API real. Ela cobre health/readiness, validação estrita,
 
 Proteções atuais:
 
-- allowlist de quatro arquivos públicos;
+- allowlist dos quatro assets públicos;
 - CORS por allowlist, sem reflexão arbitrária de `Origin`;
 - `ALLOWED_ORIGINS` vazio permite apenas uso same-origin;
 - limite de 64 KiB no corpo e validação estrita do payload;
@@ -85,7 +95,7 @@ CORS não é autenticação nem impede abuso por clientes não-browser. Para um 
 
 ## Frontend separado
 
-O frontend usa o mesmo domínio por padrão. Para Vercel, Netlify ou outro servidor estático, altere `index.html`:
+O frontend usa o mesmo domínio por padrão. Para Vercel, Netlify ou outro servidor estático, altere `public/index.html`:
 
 ```html
 <meta name="api-base-url" content="https://SEU-BACKEND">
@@ -119,7 +129,7 @@ Em provedores que injetam outra porta, exponha a mesma variável `PORT` no servi
 ### Gunicorn sem Docker
 
 ```bash
-gunicorn app:app --bind 0.0.0.0:$PORT --worker-class gthread --threads 12 --workers 1 --timeout 150
+gunicorn backend.app:app --bind 0.0.0.0:$PORT --worker-class gthread --threads 12 --workers 1 --timeout 150
 ```
 
 O processo único mantém o rate-limit em memória consistente; as threads permitem atender health checks durante streams. Antes de aumentar processos ou instâncias, implemente armazenamento compartilhado.

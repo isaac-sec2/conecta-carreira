@@ -9,9 +9,7 @@ from concurrent.futures import ThreadPoolExecutor
 import pytest
 import requests
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-import app as appmod
+from backend import app as appmod
 
 
 class FakeUpstream:
@@ -467,7 +465,7 @@ def test_json_profundamente_aninhado_retorna_400(client, monkeypatch):
 def test_cors_real_depende_da_configuracao_de_importacao():
     codigo = """
 import json
-import app
+from backend import app
 client = app.app.test_client()
 permitido = client.options(
     "/api/gemini",
@@ -522,9 +520,9 @@ print(json.dumps({
 
 @pytest.mark.parametrize("path", [
     "/index.html",
-    "/style.css",
-    "/script.js",
-    "/api.js",
+    "/css/styles.css",
+    "/js/api.js",
+    "/js/app.js",
 ])
 def test_assets_publicos_servidos(client, path):
     assert client.get(path).status_code == 200
@@ -536,11 +534,12 @@ def test_assets_publicos_servidos(client, path):
     "/%2e%2e/.env",
     "/.git/config",
     "/app.py",
+    "/backend/app.py",
     "/requirements.txt",
     "/Dockerfile",
     "/tests/test_app.py",
-    "/index.html/../app.py",
-    "/api.js/extra",
+    "/index.html/../backend/app.py",
+    "/js/api.js/extra",
 ])
 def test_arquivos_privados_bloqueados(client, path):
     assert client.get(path).status_code == 404
