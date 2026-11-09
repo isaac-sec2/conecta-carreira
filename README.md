@@ -22,10 +22,10 @@ conecta-carreira/
 │   └── js/
 │       ├── api.js
 │       └── app.js
-├── worker/
-│   └── worker.js
 ├── tests/
-│   └── test_app.py
+│   ├── conftest.py
+│   ├── test_app.py
+│   └── test_frontend.mjs
 ├── .env.example
 ├── Dockerfile
 ├── render.yaml
@@ -72,7 +72,7 @@ curl -X POST http://localhost:5000/api/gemini \
 
 ```bash
 pip install -r requirements.txt
-pytest -q
+python -m pytest -q
 node --test tests/test_frontend.mjs
 ```
 
@@ -84,7 +84,8 @@ Proteções atuais:
 - CORS por allowlist, sem reflexão arbitrária de `Origin`;
 - `ALLOWED_ORIGINS` vazio permite apenas uso same-origin;
 - limite de 64 KiB no corpo e validação estrita do payload;
-- rate-limit atômico em memória, com expiração e limite de chaves;
+- rate-limit atômico em memória, com expiração e limite de chaves; IPv6 conta por rede `/64`;
+- teto diário de chamadas à IA (`MAX_REQUESTS_PER_DAY`, 1000 por padrão), em memória: zera ao reiniciar;
 - limite global de streams (oito por padrão, 30 no Render) menor que o número de threads, para reservar capacidade para health checks;
 - chave enviada ao Gemini pelo header `x-goog-api-key`;
 - `.env*`, `.git`, testes e caches excluídos da imagem Docker;

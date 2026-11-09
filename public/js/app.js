@@ -155,31 +155,6 @@ const STORAGE_KEYS = {
   ENTREVISTAS: "conecta-entrevistas"
 };
 
-const historicoSessao = {
-  curriculo: [],
-  entrevista: []
-};
-
-function clonarRegistro(registro) {
-  try {
-    return JSON.parse(JSON.stringify(registro));
-  } catch {
-    return { ...registro };
-  }
-}
-
-function salvarHistorico(tipo, dados) {
-  const lista = tipo === "curriculo" ? historicoSessao.curriculo : historicoSessao.entrevista;
-  const registro = clonarRegistro({ ...dados, timestamp: Date.now() });
-  lista.unshift(registro);
-  if (lista.length > 20) lista.length = 20;
-}
-
-function obterHistorico(tipo) {
-  const lista = tipo === "curriculo" ? historicoSessao.curriculo : historicoSessao.entrevista;
-  return lista.map(clonarRegistro);
-}
-
 function removerStorageLegado() {
   for (const key of Object.values(STORAGE_KEYS)) {
     try { window.localStorage?.removeItem(key); } catch { }
@@ -255,7 +230,6 @@ const CAMPOS_CURRICULO = [
 let gerandoCurriculo = false;
 let abortControllerCurriculo = null;
 let ultimoMarkdownCurriculo = "";
-let ultimoPromptCurriculo = null;
 let ultimoSnapshotCurriculo = null;
 let geracaoCurriculoToken = 0;
 let progressoTimer = null;
@@ -350,26 +324,6 @@ function renderizarOrientacao(markdown) {
   if (!box || !texto) return;
   texto.innerHTML = markdownParaHtml(markdown);
   box.hidden = !String(markdown || "").trim();
-}
-
-const LIMITE_PROMPT_CLIENTE = typeof LIMITE_MAX_PROMPT === "number" ? LIMITE_MAX_PROMPT : 12000;
-
-function validarLimitePrompt(prompt) {
-  const texto = String(prompt || "");
-  if (!texto.trim()) {
-    const erro = new Error("O pedido não pode ficar vazio.");
-    erro.codigo = "PROMPT_VAZIO";
-    erro.retryable = false;
-    throw erro;
-  }
-  if (Array.from(texto).length > LIMITE_PROMPT_CLIENTE) {
-    const erro = new Error(`O pedido excede o limite de ${LIMITE_PROMPT_CLIENTE} caracteres. Reduza os dados e tente novamente.`);
-    erro.status = 400;
-    erro.codigo = "PROMPT_TOO_LARGE";
-    erro.retryable = false;
-    throw erro;
-  }
-  return texto;
 }
 
 function mostrarErroCurriculo(mensagem) {
@@ -479,7 +433,6 @@ function pararProgressoCurriculo(ok, token = geracaoCurriculoToken) {
 
 function limparResultadoCurriculo() {
   ultimoMarkdownCurriculo = "";
-  ultimoPromptCurriculo = null;
   ultimoSnapshotCurriculo = null;
   const caixa = el("resultado-curriculo");
   if (caixa) {
@@ -514,12 +467,6 @@ async function gerarCurriculo() {
   const promptCompleto = montarPromptCurriculo(snapshot);
   limparResultadoCurriculo();
   esconderErroCurriculo();
-  try {
-    validarLimitePrompt(promptCompleto);
-  } catch (erro) {
-    mostrarErroCurriculo(erro.message);
-    return;
-  }
 
   const requestId = geracaoCurriculoToken + 1;
   geracaoCurriculoToken = requestId;
@@ -565,7 +512,6 @@ async function gerarCurriculo() {
 
     const { curriculo, orientacao } = separarOrientacao(respostaMarkdown);
     ultimoMarkdownCurriculo = curriculo;
-    ultimoPromptCurriculo = promptCompleto;
     ultimoSnapshotCurriculo = snapshot;
     renderCurriculoMarkdown(curriculo, caixa, snapshot);
     renderizarOrientacao(orientacao);
@@ -582,7 +528,6 @@ async function gerarCurriculo() {
     if (botoes) botoes.style.display = "flex";
     atualizarBotaoEditar(false);
     toastSuccess("Currículo gerado!", "Revise, edite se quiser, e baixe em PDF ou texto");
-    salvarHistorico("curriculo", { snapshot, markdown: respostaMarkdown });
   } catch (erro) {
     if (!ehAtual() && !controller.signal.aborted) return;
     pararProgressoCurriculo(false, requestId);
@@ -842,8 +787,6 @@ function preencherExemplo() {
 }
 
 function limparHistorico(tipo) {
-  const lista = tipo === "curriculo" ? historicoSessao.curriculo : historicoSessao.entrevista;
-  lista.length = 0;
   removerStorageLegado();
   if (tipo === "curriculo") {
     el("area-vaga")?.remove();
@@ -874,7 +817,6 @@ let areaEntrevista = "";
 let contextoVaga = "";
 let contextoEntrevista = "";
 let operacaoEntrevista = 0;
-let ultimaAcaoEntrevista = null;
 
 function definirRotuloBotaoIniciar(texto, icone = "play") {
   const botao = el("btn-iniciar");
@@ -1092,13 +1034,6 @@ Formato: use os títulos "## Pontos fortes", "## Para praticar" e "## Próximo p
 
 function solicitarEntrevista(prompt, tipo, token, concluir) {
   if (token !== operacaoEntrevista) return;
-  try {
-    validarLimitePrompt(prompt);
-  } catch (erro) {
-    definirEstadoEntrevista(ESTADOS_ENTREVISTA.ERROR);
-    adicionarMensagemErro(formatarErroEntrevista(erro));
-    return;
-  }
 
   const estadoSolicitacao = tipo === "feedback" ? ESTADOS_ENTREVISTA.LOADING_FEEDBACK : ESTADOS_ENTREVISTA.LOADING_QUESTION;
   definirEstadoEntrevista(estadoSolicitacao);
@@ -1129,7 +1064,6 @@ function solicitarEntrevista(prompt, tipo, token, concluir) {
       removerMensagensErroEntrevista();
       solicitarEntrevista(prompt, tipo, token, concluir);
     };
-    ultimaAcaoEntrevista = retry;
     adicionarMensagemErro(formatarErroEntrevista(erro), retry);
   }).finally(() => {
     if (token === operacaoEntrevista && abortControllerEntrevista === controller) {
@@ -1156,7 +1090,6 @@ async function iniciarEntrevista() {
   contextoEntrevista = selectArea?.selectedOptions[0]?.id === "area-vaga" ? contextoVaga : "";
   historicoChat = [];
   perguntaAtual = 1;
-  ultimaAcaoEntrevista = null;
   const chat = el("chat-box");
   if (chat) chat.replaceChildren();
   const progressSteps = el("progress-steps");
@@ -1226,7 +1159,6 @@ async function enviarResposta() {
     definirEstadoEntrevista(ESTADOS_ENTREVISTA.COMPLETED);
     anunciarRecrutador(feedback);
     atualizarProgresso();
-    salvarHistorico("entrevista", { area: areaEntrevista, historico: [...historicoChat] });
     toastSuccess("Entrevista finalizada!", "Confira seu feedback abaixo");
   });
 }
@@ -1259,7 +1191,6 @@ function resetarEntrevista() {
   perguntaAtual = 0;
   areaEntrevista = "";
   contextoEntrevista = "";
-  ultimaAcaoEntrevista = null;
   const chat = el("chat-box");
   if (chat) chat.replaceChildren(criarEmptyStateEntrevista());
   const resposta = el("resposta");
