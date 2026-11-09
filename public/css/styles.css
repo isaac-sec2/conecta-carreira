@@ -808,7 +808,7 @@ textarea {
   gap: 10px;
 }
 
-.chat-input input {
+.chat-input textarea {
   flex: 1;
 }
 

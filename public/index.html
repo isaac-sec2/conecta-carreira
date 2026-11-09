@@ -174,6 +174,7 @@
               <button class="btn btn-secundario" id="btn-editar" onclick="alternarEdicaoCurriculo()"><i data-lucide="pencil" aria-hidden="true"></i> Editar</button>
               <button class="btn btn-primario" id="btn-pdf" onclick="baixarPDF()"><i data-lucide="download" aria-hidden="true"></i> Baixar PDF</button>
               <button class="btn btn-secundario" id="btn-txt" onclick="baixarTXT()"><i data-lucide="file-text" aria-hidden="true"></i> Baixar TXT</button>
+              <button class="btn btn-secundario" id="btn-treinar" onclick="treinarParaVaga()"><i data-lucide="message-square" aria-hidden="true"></i> Treinar para esta vaga</button>
               <button class="btn btn-limpar" id="btn-limpar-curriculo" onclick="limparHistorico('curriculo')"><i data-lucide="trash-2" aria-hidden="true"></i> Limpar histórico</button>
             </div>
 
@@ -202,14 +203,18 @@
             <div class="progress-steps" id="progress-steps" hidden>
               <div class="progress-step" data-step="1">
                 <div class="progress-step__circle">1</div>
-                <span class="progress-step__label">Início</span>
+                <span class="progress-step__label">Pergunta 1</span>
               </div>
               <div class="progress-step" data-step="2">
                 <div class="progress-step__circle">2</div>
-                <span class="progress-step__label">Desenvolvimento</span>
+                <span class="progress-step__label">Pergunta 2</span>
               </div>
               <div class="progress-step" data-step="3">
                 <div class="progress-step__circle">3</div>
+                <span class="progress-step__label">Pergunta 3</span>
+              </div>
+              <div class="progress-step" data-step="4">
+                <div class="progress-step__circle">4</div>
                 <span class="progress-step__label">Feedback</span>
               </div>
             </div>
@@ -229,8 +234,8 @@
             <p id="entrevista-status" class="sr-only" role="status" aria-live="polite"></p>
 
             <div class="chat-input" id="chat-input" hidden>
-              <label for="resposta" class="sr-only">Sua resposta (Enter para enviar)</label>
-              <input type="text" id="resposta" placeholder="Digite sua resposta... (Enter envia)" maxlength="1500" autocomplete="off">
+              <label for="resposta" class="sr-only">Sua resposta (Enter envia, Shift+Enter quebra a linha)</label>
+              <textarea id="resposta" rows="3" placeholder="Digite sua resposta... (Enter envia, Shift+Enter quebra a linha)" maxlength="1500" autocomplete="off"></textarea>
               <button class="btn btn-enviar" id="btn-enviar" type="button" onclick="enviarResposta()">Enviar</button>
             </div>
 

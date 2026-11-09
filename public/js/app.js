@@ -846,6 +846,8 @@ function limparHistorico(tipo) {
   lista.length = 0;
   removerStorageLegado();
   if (tipo === "curriculo") {
+    el("area-vaga")?.remove();
+    contextoVaga = "";
     limparResultadoCurriculo();
   } else {
     resetarEntrevista();
@@ -869,6 +871,8 @@ let perguntaAtual = 0;
 let entrevistaCarregando = false;
 let abortControllerEntrevista = null;
 let areaEntrevista = "";
+let contextoVaga = "";
+let contextoEntrevista = "";
 let operacaoEntrevista = 0;
 let ultimaAcaoEntrevista = null;
 
@@ -1033,9 +1037,20 @@ function ehCancelamentoEntrevista(erro, controller) {
     || String(erro?.message || "").includes("cancelada");
 }
 
-function promptPrimeiraPerguntaEntrevista(area) {
-  return `Você é um orientador de carreira e recrutador experiente, simulando uma entrevista para **${area}** com um estudante do ensino médio ou candidato ao primeiro emprego.
+function montarContextoVaga(snapshot) {
+  // Limite para sobrar espaço ao histórico dentro do máximo de 12000 caracteres do prompt.
+  const dados = [
+    `Formação: ${snapshot.formacao || "não informada"}`,
+    `Experiências: ${snapshot.experiencia || "não informadas"}`,
+    `Habilidades e cursos: ${snapshot.habilidades || "não informados"}`,
+    `Descrição da vaga: ${snapshot.descricaoVaga || "não informada"}`
+  ].join("\n").slice(0, 3000);
+  return `\nUse estes dados para fazer perguntas específicas para esta vaga e este candidato, sem presumir nada além deles:\n${dados}\n`;
+}
 
+function promptPrimeiraPerguntaEntrevista(area, contexto = "") {
+  return `Você é um orientador de carreira e recrutador experiente, simulando uma entrevista para **${area}** com um estudante do ensino médio ou candidato ao primeiro emprego.
+${contexto}
 REGRAS:
 - Faça APENAS a 1ª pergunta, direta, acolhedora e fácil de responder
 - Não presuma experiência profissional. Aceite exemplos da escola, cursos, projetos, voluntariado, família e atividades do dia a dia
@@ -1044,8 +1059,9 @@ REGRAS:
 - Retorne APENAS a pergunta, sem introduções nem "Aqui está a pergunta:"`;
 }
 
-function promptProximaPerguntaEntrevista(area, historico, numero) {
+function promptProximaPerguntaEntrevista(area, historico, numero, contexto = "") {
   return `Você é um orientador de carreira conduzindo uma entrevista para **${area}** com um estudante ou candidato ao primeiro emprego.
+${contexto}
 Histórico:
 ${[...historico].join("\n")}
 
@@ -1059,8 +1075,9 @@ REGRAS:
 - Tom profissional, encorajador e conciso; máximo 3 frases`;
 }
 
-function promptFeedbackEntrevista(area, historico) {
+function promptFeedbackEntrevista(area, historico, contexto = "") {
   return `Você é um orientador de carreira acolhedor. A entrevista para **${area}** foi concluída por um estudante ou candidato ao primeiro emprego.
+${contexto}
 Histórico completo:
 ${[...historico].join("\n")}
 
@@ -1070,7 +1087,7 @@ Dê um feedback final construtivo e fácil de entender:
 3. Uma sugestão de resposta ou atitude para continuar treinando
 4. Encerramento motivador e realista
 
-Formato: use os títulos "Pontos fortes", "Para praticar" e "Próximo passo". Parágrafos curtos, tom encorajador, sem dar nota ou reprovar. MÁXIMO 220 palavras.`;
+Formato: use os títulos "## Pontos fortes", "## Para praticar" e "## Próximo passo", cada um em linha própria. Parágrafos curtos, tom encorajador, sem dar nota ou reprovar. MÁXIMO 220 palavras.`;
 }
 
 function solicitarEntrevista(prompt, tipo, token, concluir) {
@@ -1092,7 +1109,7 @@ function solicitarEntrevista(prompt, tipo, token, concluir) {
   const aoTrecho = criarAtualizadorDigitando(digitando, ativo);
 
   return chamarGemini(prompt, aoTrecho, {
-    maxTokens: tipo === "feedback" ? 500 : 400,
+    maxTokens: tipo === "feedback" ? 1024 : 400,
     temperature: 0.6,
     signal: controller.signal,
     aoCortar: () => toastWarning("Resposta incompleta", "A IA atingiu o limite de tamanho e o texto foi cortado.")
@@ -1136,6 +1153,7 @@ async function iniciarEntrevista() {
   abortControllerEntrevista?.abort();
   const token = operacaoEntrevista;
   areaEntrevista = area;
+  contextoEntrevista = selectArea?.selectedOptions[0]?.id === "area-vaga" ? contextoVaga : "";
   historicoChat = [];
   perguntaAtual = 1;
   ultimaAcaoEntrevista = null;
@@ -1150,9 +1168,9 @@ async function iniciarEntrevista() {
   const btnCancelar = el("btn-cancelar-entrevista");
   if (btnCancelar) btnCancelar.hidden = false;
   definirEstadoEntrevista(ESTADOS_ENTREVISTA.LOADING_QUESTION);
-  adicionarMensagem(`Ótimo! Vamos simular uma entrevista para **${areaEntrevista}**. Serão ${TOTAL_PERGUNTAS} perguntas. Preparado(a)?`, "ia");
+  adicionarMensagem(`Ótimo! Vamos simular uma entrevista para **${areaEntrevista}**. Serão ${TOTAL_PERGUNTAS} perguntas e um feedback no final.`, "ia");
   atualizarProgresso();
-  const prompt = promptPrimeiraPerguntaEntrevista(areaEntrevista);
+  const prompt = promptPrimeiraPerguntaEntrevista(areaEntrevista, contextoEntrevista);
   return solicitarEntrevista(prompt, "question", token, (primeiraPergunta, bolha) => {
     if (token !== operacaoEntrevista) {
       bolha?.remove();
@@ -1180,7 +1198,7 @@ async function enviarResposta() {
     const numero = perguntaAtual + 1;
     perguntaAtual = numero;
     atualizarProgresso();
-    const prompt = promptProximaPerguntaEntrevista(areaEntrevista, historicoChat, numero);
+    const prompt = promptProximaPerguntaEntrevista(areaEntrevista, historicoChat, numero, contextoEntrevista);
     return solicitarEntrevista(prompt, "question", token, (proxima, bolha) => {
       if (token !== operacaoEntrevista) {
         bolha?.remove();
@@ -1195,7 +1213,9 @@ async function enviarResposta() {
     });
   }
 
-  const prompt = promptFeedbackEntrevista(areaEntrevista, historicoChat);
+  perguntaAtual = TOTAL_PERGUNTAS + 1;
+  atualizarProgresso();
+  const prompt = promptFeedbackEntrevista(areaEntrevista, historicoChat, contextoEntrevista);
   return solicitarEntrevista(prompt, "feedback", token, (feedback, bolha) => {
     if (token !== operacaoEntrevista) {
       bolha?.remove();
@@ -1203,7 +1223,6 @@ async function enviarResposta() {
     }
     bolha?.classList.remove("msg-digitando");
     historicoChat.push(`Feedback: ${feedback}`);
-    perguntaAtual = TOTAL_PERGUNTAS;
     definirEstadoEntrevista(ESTADOS_ENTREVISTA.COMPLETED);
     anunciarRecrutador(feedback);
     atualizarProgresso();
@@ -1239,6 +1258,7 @@ function resetarEntrevista() {
   historicoChat = [];
   perguntaAtual = 0;
   areaEntrevista = "";
+  contextoEntrevista = "";
   ultimaAcaoEntrevista = null;
   const chat = el("chat-box");
   if (chat) chat.replaceChildren(criarEmptyStateEntrevista());
@@ -1250,6 +1270,29 @@ function resetarEntrevista() {
   const area = el("area");
   if (area) area.disabled = false;
   window.lucide?.createIcons?.();
+}
+
+function treinarParaVaga() {
+  const snapshot = ultimoSnapshotCurriculo;
+  const select = el("area");
+  if (!snapshot || !select) {
+    toastWarning("Nada para treinar", "Gere um currículo primeiro");
+    return;
+  }
+  resetarEntrevista();
+  let opcao = el("area-vaga");
+  if (!opcao) {
+    opcao = document.createElement("option");
+    opcao.id = "area-vaga";
+    select.prepend(opcao);
+  }
+  opcao.value = snapshot.objetivo;
+  opcao.textContent = `Esta vaga: ${snapshot.objetivo}`;
+  opcao.selected = true;
+  contextoVaga = montarContextoVaga(snapshot);
+  ativarAba("entrevista");
+  el("ferramentas")?.scrollIntoView({ block: "start" });
+  return iniciarEntrevista();
 }
 
 function cancelarEntrevista() {
