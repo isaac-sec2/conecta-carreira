@@ -1,4 +1,8 @@
 .env*
+.agents/
+.taste-skill/
+skills-lock.json
+shots/
 .git/
 .gitignore
 .venv/

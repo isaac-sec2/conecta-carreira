@@ -26,7 +26,8 @@ log = logging.getLogger("conecta")
 
 VERSAO = "2.0.0"
 INICIO = time.monotonic()
-PUBLIC_FILES = frozenset({"index.html", "css/styles.css", "js/api.js", "js/app.js"})
+PUBLIC_FILES = frozenset({"index.html", "favicon.svg", "share.jpg", "css/styles.css", "js/api.js", "js/app.js"})
+PUBLIC_PREFIX = "assets/"
 MAX_CONTENT_LENGTH = 64 * 1024
 PROMPT_MAX_CHARS = 12000
 
@@ -284,7 +285,8 @@ def index():
 
 @app.get("/<path:filename>")
 def static_files(filename):
-    if filename not in PUBLIC_FILES or "\\" in filename:
+    publico = filename in PUBLIC_FILES or filename.startswith(PUBLIC_PREFIX)
+    if not publico or "\\" in filename:
         return jsonify({"erro": "Não encontrado"}), 404
     return send_from_directory(PUBLIC_DIR, filename)
 

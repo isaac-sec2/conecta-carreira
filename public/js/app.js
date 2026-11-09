@@ -6,20 +6,8 @@ function mostrarToast(tipo, titulo, mensagem = "") {
   const container = el("toast-container");
   if (!container) return;
   const tipoSeguro = ["success", "error", "warning", "info"].includes(tipo) ? tipo : "info";
-  const icons = {
-    success: "check-circle",
-    error: "x-circle",
-    warning: "alert-triangle",
-    info: "info"
-  };
   const toast = document.createElement("div");
   toast.className = `toast toast--${tipoSeguro}`;
-  const iconWrap = document.createElement("span");
-  iconWrap.className = "toast__icon";
-  iconWrap.setAttribute("aria-hidden", "true");
-  const icon = document.createElement("i");
-  icon.setAttribute("data-lucide", icons[tipoSeguro]);
-  iconWrap.appendChild(icon);
   const content = document.createElement("div");
   content.className = "toast__content";
   const title = document.createElement("div");
@@ -36,13 +24,10 @@ function mostrarToast(tipo, titulo, mensagem = "") {
   close.type = "button";
   close.className = "toast__close";
   close.setAttribute("aria-label", "Fechar");
-  const closeIcon = document.createElement("i");
-  closeIcon.setAttribute("data-lucide", "x");
-  close.appendChild(closeIcon);
+  close.textContent = "×";
   close.addEventListener("click", () => toast.remove());
-  toast.append(iconWrap, content, close);
+  toast.append(content, close);
   container.appendChild(toast);
-  window.lucide?.createIcons?.();
   window.setTimeout(() => {
     if (!toast.isConnected) return;
     toast.classList.add("removing");
@@ -58,7 +43,7 @@ function toastWarning(titulo, mensagem) { mostrarToast("warning", titulo, mensag
 function setFieldError(fieldId, message) {
   const field = el(fieldId);
   if (!field) return;
-  const group = field.closest(".form-group");
+  const group = field.closest(".field");
   const errorEl = el(`err-${fieldId}`);
   group?.classList.add("has-error");
   if (errorEl) {
@@ -76,7 +61,7 @@ function setFieldError(fieldId, message) {
 function clearFieldError(fieldId) {
   const field = el(fieldId);
   if (!field) return;
-  const group = field.closest(".form-group");
+  const group = field.closest(".field");
   const errorEl = el(`err-${fieldId}`);
   group?.classList.remove("has-error");
   if (errorEl) {
@@ -551,7 +536,6 @@ async function gerarCurriculo() {
         botao.innerHTML = textoOriginalBotao;
       }
       if (btnCancelar) btnCancelar.hidden = true;
-      window.lucide?.createIcons?.();
     }
   }
 }
@@ -598,7 +582,6 @@ function renderCurriculoMarkdown(texto, caixa, dados) {
   markdown.className = "curriculo-markdown";
   markdown.innerHTML = markdownParaHtml(texto);
   caixa.replaceChildren(header, markdown);
-  window.lucide?.createIcons?.();
 }
 
 async function copiarTextoFallback(texto) {
@@ -641,7 +624,6 @@ function restaurarBotaoPdf(botao, textoOriginal) {
   if (!botao) return;
   botao.innerHTML = textoOriginal;
   botao.disabled = false;
-  window.lucide?.createIcons?.();
 }
 
 function textoItemPdf(item) {
@@ -663,9 +645,8 @@ function baixarPDF() {
   }
   const textoOriginal = botao?.innerHTML || "";
   if (botao) {
-    botao.innerHTML = '<i data-lucide="loader" aria-hidden="true" style="animation: spin 1s linear infinite"></i> Gerando...';
+    botao.textContent = "Gerando...";
     botao.disabled = true;
-    window.lucide?.createIcons?.();
   }
   try {
     if (!window.jspdf?.jsPDF) throw new Error("Gerador de PDF indisponível. Recarregue a página e tente novamente.");
@@ -716,13 +697,7 @@ function atualizarBotaoEditar(editando) {
   const btn = el("btn-editar");
   const caixa = el("resultado-curriculo");
   if (!btn || !caixa) return;
-  btn.replaceChildren();
-  const icon = document.createElement("i");
-  icon.setAttribute("data-lucide", editando ? "check" : "pencil");
-  icon.setAttribute("aria-hidden", "true");
-  const texto = document.createElement("span");
-  texto.textContent = editando ? "Salvar edição" : "Editar";
-  btn.append(icon, texto);
+  btn.textContent = editando ? "Salvar edição" : "Editar";
   if (caixa) {
     caixa.contentEditable = editando ? "true" : "false";
     caixa.classList.toggle("editando", editando);
@@ -731,7 +706,6 @@ function atualizarBotaoEditar(editando) {
     caixa.focus?.();
     toastInfo("Modo edição", "Clique no texto e corrija. Depois clique em Salvar edição.");
   }
-  window.lucide?.createIcons?.();
 }
 
 function alternarEdicaoCurriculo() {
@@ -818,17 +792,10 @@ let contextoVaga = "";
 let contextoEntrevista = "";
 let operacaoEntrevista = 0;
 
-function definirRotuloBotaoIniciar(texto, icone = "play") {
+function definirRotuloBotaoIniciar(texto) {
   const botao = el("btn-iniciar");
   if (!botao) return;
-  botao.replaceChildren();
-  const icon = document.createElement("i");
-  icon.setAttribute("data-lucide", icone);
-  icon.setAttribute("aria-hidden", "true");
-  const label = document.createElement("span");
-  label.textContent = texto;
-  botao.append(icon, label);
-  window.lucide?.createIcons?.();
+  botao.textContent = texto;
 }
 
 function definirStatusEntrevista(texto) {
@@ -862,7 +829,7 @@ function definirEstadoEntrevista(estado) {
   if (progressSteps) progressSteps.hidden = estado === ESTADOS_ENTREVISTA.IDLE;
   if (chat) chat.setAttribute("aria-busy", String(entrevistaCarregando));
   if (estado === ESTADOS_ENTREVISTA.IDLE) definirRotuloBotaoIniciar("Começar simulação");
-  if (estado === ESTADOS_ENTREVISTA.COMPLETED) definirRotuloBotaoIniciar("Começar novamente", "rotate-ccw");
+  if (estado === ESTADOS_ENTREVISTA.COMPLETED) definirRotuloBotaoIniciar("Começar novamente");
   if (estado === ESTADOS_ENTREVISTA.LOADING_QUESTION) definirStatusEntrevista("Preparando a próxima pergunta.");
   if (estado === ESTADOS_ENTREVISTA.WAITING_ANSWER) definirStatusEntrevista("Sua resposta está sendo esperada.");
   if (estado === ESTADOS_ENTREVISTA.LOADING_FEEDBACK) definirStatusEntrevista("Preparando seu feedback final.");
@@ -899,7 +866,7 @@ function adicionarMensagem(texto, quem) {
   if (!chat) return null;
   el("empty-state")?.remove();
   const mensagem = document.createElement("div");
-  mensagem.className = `msg rounded-2xl rounded-tl-none ${quem === "ia" ? "msg-ia" : "msg-user"}`;
+  mensagem.className = `msg ${quem === "ia" ? "msg-ia" : "msg-user"}`;
   mensagem.setAttribute("role", "group");
   mensagem.setAttribute("aria-label", quem === "ia" ? "Mensagem do recrutador" : "Sua resposta");
   if (quem === "ia") mensagem.innerHTML = markdownParaHtml(texto);
@@ -913,7 +880,7 @@ function mostrarDigitando() {
   const chat = el("chat-box");
   if (!chat) return null;
   const mensagem = document.createElement("div");
-  mensagem.className = "msg msg-ia msg-digitando rounded-2xl rounded-tl-none";
+  mensagem.className = "msg msg-ia msg-digitando";
   mensagem.setAttribute("aria-hidden", "true");
   mensagem.textContent = "digitando...";
   chat.appendChild(mensagem);
@@ -947,7 +914,7 @@ function adicionarMensagemErro(texto, acao) {
   if (!chat) return null;
   el("empty-state")?.remove();
   const mensagem = document.createElement("div");
-  mensagem.className = "msg msg-ia msg-erro rounded-2xl rounded-tl-none";
+  mensagem.className = "msg msg-ia msg-erro";
   mensagem.setAttribute("role", "alert");
   const textoErro = document.createElement("p");
   textoErro.textContent = String(texto || "Não foi possível concluir a ação.");
@@ -955,7 +922,7 @@ function adicionarMensagemErro(texto, acao) {
   if (typeof acao === "function") {
     const botao = document.createElement("button");
     botao.type = "button";
-    botao.className = "btn btn-tentar";
+    botao.className = "btn btn--secondary";
     botao.textContent = "Tentar novamente";
     botao.addEventListener("click", () => {
       mensagem.remove();
@@ -1165,21 +1132,14 @@ async function enviarResposta() {
 
 function criarEmptyStateEntrevista() {
   const empty = document.createElement("div");
-  empty.className = "empty-state";
+  empty.className = "vazio";
   empty.id = "empty-state";
-  const icon = document.createElement("div");
-  icon.className = "empty-state__icon";
-  icon.setAttribute("aria-hidden", "true");
-  const iconElement = document.createElement("i");
-  iconElement.setAttribute("data-lucide", "message-square");
-  icon.appendChild(iconElement);
-  const title = document.createElement("div");
-  title.className = "empty-state__title";
-  title.textContent = "Simulação pronta para começar";
+  const title = document.createElement("p");
+  title.className = "vazio__titulo";
+  title.textContent = "A conversa aparece aqui";
   const description = document.createElement("p");
-  description.className = "empty-state__desc";
-  description.textContent = 'Selecione uma área e clique em "Começar simulação" para treinar com nosso recrutador virtual.';
-  empty.append(icon, title, description);
+  description.textContent = "Escolha a área e comece. O recrutador virtual faz uma pergunta de cada vez.";
+  empty.append(title, description);
   return empty;
 }
 
@@ -1200,7 +1160,6 @@ function resetarEntrevista() {
   document.querySelectorAll(".progress-step").forEach(step => step.classList.remove("active", "completed"));
   const area = el("area");
   if (area) area.disabled = false;
-  window.lucide?.createIcons?.();
 }
 
 function treinarParaVaga() {
@@ -1262,34 +1221,12 @@ document.addEventListener("keydown", evento => {
   }
 });
 
-const botoesAbas = document.querySelectorAll(".tab-btn");
 const botoesHero = document.querySelectorAll(".btn-tab");
-const paineis = document.querySelectorAll(".tab-panel");
 
+// As abas em si ficam com o system.js do kit (role="tab").
 function ativarAba(target) {
-  botoesAbas.forEach(botao => {
-    const ativo = botao.dataset.tab === target;
-    botao.classList.toggle("active", ativo);
-    botao.setAttribute("aria-selected", String(ativo));
-    botao.tabIndex = ativo ? 0 : -1;
-  });
-  paineis.forEach(painel => {
-    const ativo = painel.id === `${target}-panel`;
-    painel.classList.toggle("active", ativo);
-    painel.setAttribute("aria-hidden", String(!ativo));
-  });
+  el(`tab-${target}`)?.click();
 }
-
-botoesAbas.forEach((botao, index) => {
-  botao.addEventListener("click", () => ativarAba(botao.dataset.tab));
-  botao.addEventListener("keydown", evento => {
-    if (!["ArrowLeft", "ArrowRight"].includes(evento.key)) return;
-    evento.preventDefault();
-    const proximo = (index + (evento.key === "ArrowRight" ? 1 : -1) + botoesAbas.length) % botoesAbas.length;
-    botoesAbas[proximo].focus();
-    ativarAba(botoesAbas[proximo].dataset.tab);
-  });
-});
 
 botoesHero.forEach(botao => {
   botao.addEventListener("click", evento => {
@@ -1301,37 +1238,4 @@ botoesHero.forEach(botao => {
   });
 });
 
-const botaoTema = el("toggle-tema");
-const CHAVE_TEMA = "conecta-carreira-tema";
-
-function atualizarIconeTema(ehEscuro) {
-  if (!botaoTema) return;
-  botaoTema.setAttribute("aria-label", ehEscuro ? "Alternar para modo claro" : "Alternar para modo escuro");
-  const icone = botaoTema.querySelector("[data-lucide]") || botaoTema.querySelector("svg");
-  if (icone && window.lucide?.createIcons) {
-    icone.setAttribute("data-lucide", ehEscuro ? "sun" : "moon");
-    window.lucide.createIcons();
-    return;
-  }
-  icone?.remove();
-  botaoTema.textContent = ehEscuro ? "Sol" : "Lua";
-}
-
-atualizarIconeTema(document.documentElement.getAttribute("data-tema") === "escuro");
-botaoTema?.addEventListener("click", () => {
-  const estaEscuro = document.documentElement.getAttribute("data-tema") === "escuro";
-  if (estaEscuro) {
-    document.documentElement.removeAttribute("data-tema");
-  } else {
-    document.documentElement.setAttribute("data-tema", "escuro");
-  }
-  try { window.localStorage?.setItem(CHAVE_TEMA, estaEscuro ? "claro" : "escuro"); } catch { }
-  atualizarIconeTema(!estaEscuro);
-});
-
-function initLucide() {
-  if (!window.lucide?.createIcons) return;
-  try { window.lucide.createIcons({ strokeWidth: 2 }); } catch { }
-}
 removerStorageLegado();
-initLucide();

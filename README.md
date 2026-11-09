@@ -34,7 +34,7 @@ conecta-carreira/
 └── README.md
 ```
 
-O Flask serve somente os quatro assets dentro de `public/`. Backend, testes, configuração e arquivos de infraestrutura não ficam acessíveis pela rota estática.
+O Flask serve somente os arquivos listados em `PUBLIC_FILES` e a pasta `public/assets/`, que guarda a parte usada do kit visual. Backend, testes, configuração e arquivos de infraestrutura não ficam acessíveis pela rota estática.
 
 ## Rodar local
 
@@ -81,7 +81,7 @@ A suíte não chama a API real. Ela cobre health/readiness, validação estrita,
 
 Proteções atuais:
 
-- allowlist dos quatro assets públicos;
+- allowlist dos arquivos públicos e da pasta `public/assets/`;
 - CORS por allowlist, sem reflexão arbitrária de `Origin`;
 - `ALLOWED_ORIGINS` vazio permite apenas uso same-origin;
 - limite de 64 KiB no corpo e validação estrita do payload;

@@ -553,6 +553,9 @@ print(json.dumps({
     "/css/styles.css",
     "/js/api.js",
     "/js/app.js",
+    "/favicon.svg",
+    "/assets/system.css",
+    "/assets/system.js",
 ])
 def test_assets_publicos_servidos(client, path):
     assert client.get(path).status_code == 200
@@ -570,6 +573,9 @@ def test_assets_publicos_servidos(client, path):
     "/tests/test_app.py",
     "/index.html/../backend/app.py",
     "/js/api.js/extra",
+    "/assets/../../backend/app.py",
+    "/assets/%2e%2e/%2e%2e/.env",
+    "/assets/inexistente.js",
 ])
 def test_arquivos_privados_bloqueados(client, path):
     assert client.get(path).status_code == 404
