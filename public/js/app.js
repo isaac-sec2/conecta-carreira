@@ -116,9 +116,11 @@ function validateCurriculoForm() {
     clearFieldError("objetivo");
   }
 
-  const telefone = contato.replace(/\D/g, "");
-  const telefoneValido = /^\+?[\d\s().-]+$/.test(contato) && telefone.length >= 10 && telefone.length <= 15;
-  if (contato && !emailRegex.test(contato) && !(phoneRegex.test(contato) && telefoneValido)) {
+  const contatoValido = parte => {
+    const digitos = parte.replace(/\D/g, "").length;
+    return emailRegex.test(parte) || (phoneRegex.test(parte) && digitos >= 10 && digitos <= 15);
+  };
+  if (contato && !contato.split("|").every(parte => contatoValido(parte.trim()))) {
     setFieldError("contato", "Email ou telefone inválido");
     valid = false;
   } else {
@@ -174,11 +176,17 @@ function removerStorageLegado() {
   }
 }
 
+// Só formatação de texto: imagem, vídeo e style carregam URLs externas sozinhos e poderiam vazar dados pessoais.
+const FILTRO_MARKDOWN = Object.freeze({
+  ALLOWED_TAGS: ["h1", "h2", "h3", "h4", "h5", "h6", "p", "br", "hr", "ul", "ol", "li", "strong", "em", "del", "code", "pre", "blockquote", "a", "table", "thead", "tbody", "tr", "th", "td"],
+  ALLOWED_ATTR: ["href", "title"]
+});
+
 function markdownParaHtml(texto) {
   const fonte = String(texto || "");
   if (window.marked?.parse && window.DOMPurify?.sanitize) {
     try {
-      return window.DOMPurify.sanitize(window.marked.parse(fonte));
+      return window.DOMPurify.sanitize(window.marked.parse(fonte), FILTRO_MARKDOWN);
     } catch { }
   }
   return escaparHtml(fonte).replace(/\n/g, "<br>");
@@ -192,7 +200,7 @@ function linkSeguro(valor, dominioPermitido = "") {
     if (dominioPermitido) {
       const dominio = dominioPermitido.toLowerCase().replace(/^www\./, "");
       const host = url.hostname.toLowerCase();
-      if (host !== dominio && host !== `www.${dominio}`) return "";
+      if (host !== dominio && !host.endsWith(`.${dominio}`)) return "";
     }
     return url.toString();
   } catch {
@@ -205,7 +213,7 @@ function normalizarPerfil(valor, base) {
   if (!texto) return "";
   const dominio = new URL(base).hostname.replace(/^www\./, "");
   if (/^https?:\/\//i.test(texto)) return linkSeguro(texto, dominio);
-  if (/^(www\.)?(linkedin\.com|github\.com)\//i.test(texto)) return linkSeguro(`https://${texto}`, dominio);
+  if (/^([a-z0-9-]+\.)?(linkedin\.com|github\.com)\//i.test(texto)) return linkSeguro(`https://${texto}`, dominio);
   return "";
 }
 
@@ -654,6 +662,15 @@ function restaurarBotaoPdf(botao, textoOriginal) {
   window.lucide?.createIcons?.();
 }
 
+function textoItemPdf(item) {
+  if (item.tagName === "TR") return [...item.cells].map(celula => celula.textContent.trim()).join(" | ");
+  if (item.tagName !== "LI") return item.textContent;
+  // Sublistas têm seus próprios <li>; sem removê-las aqui, o texto sairia duas vezes.
+  const copia = item.cloneNode(true);
+  copia.querySelectorAll("ul, ol").forEach(lista => lista.remove());
+  return `• ${copia.textContent}`;
+}
+
 function baixarPDF() {
   const elemento = el("resultado-curriculo");
   const nome = ultimoSnapshotCurriculo?.nome || "curriculo";
@@ -688,10 +705,10 @@ function baixarPDF() {
       doc.text(linhas, margem, y);
       y += linhas.length * alturaLinha + espacamento;
     };
-    elemento.querySelectorAll(".curriculo-header h2, .curriculo-header p, .curriculo-markdown h2, .curriculo-markdown h3, .curriculo-markdown h4, .curriculo-markdown p, .curriculo-markdown li").forEach(item => {
+    elemento.querySelectorAll(".curriculo-header h2, .curriculo-header p, .curriculo-markdown :is(h1, h2, h3, h4, li, tr), .curriculo-markdown p:not(li p)").forEach(item => {
       const tag = item.tagName.toLowerCase();
-      const titulo = ["h2", "h3", "h4"].includes(tag);
-      escrever(item.textContent, titulo ? (tag === "h2" ? 18 : 12) : 10, titulo, titulo ? 2 : 1);
+      const titulo = ["h1", "h2", "h3", "h4"].includes(tag);
+      escrever(textoItemPdf(item), titulo ? (tag === "h1" || tag === "h2" ? 18 : 12) : 10, titulo, titulo ? 2 : 1);
     });
     doc.save(`${nome.replace(/\s+/g, "_")}_curriculo.pdf`);
     restaurarBotaoPdf(botao, textoOriginal);
