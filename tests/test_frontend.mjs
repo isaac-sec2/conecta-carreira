@@ -159,6 +159,25 @@ test("formulário exige contato válido e formação ou habilidades", () => {
   assert.equal(validar("maria@email.com", ""), false);
 });
 
+test("recorte 3x4 fica dentro da foto, centrado na largura e mais perto do topo", () => {
+  const { recorte3x4 } = carregarFrontend();
+  const proporcao = r => r.largura / r.altura;
+
+  const deitada = recorte3x4(1600, 900);
+  assert.equal(deitada.altura, 900);
+  assert.equal(deitada.y, 0);
+  assert.equal(deitada.x, (1600 - 675) / 2);
+  assert.ok(Math.abs(proporcao(deitada) - 0.75) < 1e-9);
+
+  const alta = recorte3x4(600, 1600);
+  assert.equal(alta.largura, 600);
+  assert.equal(alta.x, 0);
+  assert.equal(alta.y, (1600 - 800) / 4);
+  assert.ok(Math.abs(proporcao(alta) - 0.75) < 1e-9);
+
+  assert.deepEqual({ ...recorte3x4(300, 400) }, { x: 0, y: 0, largura: 300, altura: 400 });
+});
+
 test("bloqueio de segurança continua sendo erro", async () => {
   const contexto = carregarFrontend();
   contexto.fetch = async () => respostaSSE([evento("x", "SAFETY")]);

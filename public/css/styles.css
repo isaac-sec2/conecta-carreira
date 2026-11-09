@@ -90,6 +90,12 @@
   color: var(--p-inv-ink);
 }
 #resultado-curriculo.editando { outline: 2px dashed var(--action); outline-offset: 2px; }
+.curriculo-foto { float: right; width: 96px; aspect-ratio: 3 / 4; margin: 0 0 var(--s-3) var(--s-4); object-fit: cover; }
+.curriculo-header::after { content: ""; display: block; clear: both; }
+.field input[type="file"] { padding-block: var(--s-2); }
+.foto-ajuda { font-weight: 400; }
+.foto-previa { display: flex; align-items: center; gap: var(--s-4); }
+.foto-previa img { width: 60px; aspect-ratio: 3 / 4; object-fit: cover; border-radius: var(--r-sm); }
 .resultado :is(h1, h2, h3),
 .orientacao-curriculo :is(h1, h2, h3),
 .msg :is(h1, h2, h3) { margin: var(--s-4) 0 var(--s-2); font: 500 var(--t-lead)/1.3 var(--font-text); letter-spacing: 0; }

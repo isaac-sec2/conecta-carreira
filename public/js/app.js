@@ -209,7 +209,8 @@ const CAMPOS_CURRICULO = [
   "experiencia",
   "habilidades",
   "objetivo",
-  "descricao-vaga"
+  "descricao-vaga",
+  "foto"
 ];
 
 let gerandoCurriculo = false;
@@ -582,6 +583,79 @@ function renderCurriculoMarkdown(texto, caixa, dados) {
   markdown.className = "curriculo-markdown";
   markdown.innerHTML = markdownParaHtml(texto);
   caixa.replaceChildren(header, markdown);
+  atualizarFotoNoCurriculo();
+}
+
+const FOTO_FORMATOS = ["image/jpeg", "image/png", "image/webp"];
+const FOTO_MAX_BYTES = 10 * 1024 * 1024;
+const FOTO_LARGURA_PX = 354; // 3 cm a 300 dpi
+const FOTO_ALTURA_PX = 472; // 4 cm a 300 dpi
+let fotoCurriculo = ""; // data URL só na memória da página: nunca entra no prompt nem é enviada
+
+function recorte3x4(largura, altura) {
+  const larguraRecorte = Math.min(largura, altura * 3 / 4);
+  const alturaRecorte = larguraRecorte * 4 / 3;
+  // Em foto alta, corta mais embaixo que em cima: o rosto costuma estar na parte de cima.
+  return { x: (largura - larguraRecorte) / 2, y: (altura - alturaRecorte) / 4, largura: larguraRecorte, altura: alturaRecorte };
+}
+
+function atualizarFotoNoCurriculo() {
+  document.querySelector("#resultado-curriculo .curriculo-foto")?.remove();
+  const header = document.querySelector("#resultado-curriculo .curriculo-header");
+  if (!header || !fotoCurriculo) return;
+  const imagem = document.createElement("img");
+  imagem.className = "curriculo-foto";
+  imagem.src = fotoCurriculo;
+  imagem.alt = "Foto 3x4 do candidato";
+  header.prepend(imagem);
+}
+
+function definirFoto(dataUrl) {
+  fotoCurriculo = dataUrl;
+  const previa = el("foto-previa");
+  const imagem = el("foto-previa-img");
+  if (imagem) imagem.src = dataUrl;
+  if (previa) previa.hidden = !dataUrl;
+  atualizarFotoNoCurriculo();
+}
+
+function removerFoto() {
+  const campo = el("foto");
+  if (campo) campo.value = "";
+  clearFieldError("foto");
+  definirFoto("");
+}
+
+async function carregarFoto(arquivo) {
+  clearFieldError("foto");
+  if (!arquivo) return;
+  const campo = el("foto");
+  const recusar = mensagem => {
+    if (campo) campo.value = "";
+    setFieldError("foto", mensagem);
+  };
+  if (!FOTO_FORMATOS.includes(arquivo.type)) return recusar("Use uma foto em JPG, PNG ou WEBP");
+  if (arquivo.size > FOTO_MAX_BYTES) return recusar("Use uma foto de até 10 MB");
+  const url = URL.createObjectURL(arquivo);
+  try {
+    const imagem = new Image();
+    imagem.src = url;
+    await imagem.decode();
+    const { x, y, largura, altura } = recorte3x4(imagem.naturalWidth, imagem.naturalHeight);
+    const tela = document.createElement("canvas");
+    tela.width = FOTO_LARGURA_PX;
+    tela.height = FOTO_ALTURA_PX;
+    const contexto = tela.getContext("2d");
+    contexto.fillStyle = "#fff"; // PNG transparente não pode virar fundo preto no JPEG
+    contexto.fillRect(0, 0, tela.width, tela.height);
+    contexto.drawImage(imagem, x, y, largura, altura, 0, 0, tela.width, tela.height);
+    // Regravar pelo canvas também descarta os metadados da foto, como o local onde foi tirada.
+    definirFoto(tela.toDataURL("image/jpeg", 0.88));
+  } catch {
+    recusar("Não foi possível abrir essa foto. Tente outra");
+  } finally {
+    URL.revokeObjectURL(url);
+  }
 }
 
 async function copiarTextoFallback(texto) {
@@ -655,15 +729,20 @@ function baixarPDF() {
     const larguraTexto = 174;
     const alturaLinha = 6;
     let y = 20;
+    // A foto vem da página, não da variável: quem a apagou no modo de edição não a vê no PDF.
+    const foto = elemento.querySelector(".curriculo-foto")?.src;
+    if (foto) doc.addImage(foto, "JPEG", 162, 14, 30, 40);
+    let fimDaFotoY = foto ? 58 : 0; // até aqui o texto fica mais estreito para não passar por cima dela
     const escrever = (texto, tamanho = 10, negrito = false, espacamento = 0) => {
       const conteudo = String(texto || "").replace(/\s+/g, " ").trim();
       if (!conteudo) return;
       doc.setFont("helvetica", negrito ? "bold" : "normal");
       doc.setFontSize(tamanho);
-      const linhas = doc.splitTextToSize(conteudo, larguraTexto);
+      const linhas = doc.splitTextToSize(conteudo, y < fimDaFotoY ? 140 : larguraTexto);
       if (y + linhas.length * alturaLinha > 278) {
         doc.addPage();
         y = 20;
+        fimDaFotoY = 0;
       }
       doc.text(linhas, margem, y);
       y += linhas.length * alturaLinha + espacamento;
@@ -765,6 +844,7 @@ function limparHistorico(tipo) {
   if (tipo === "curriculo") {
     el("area-vaga")?.remove();
     contextoVaga = "";
+    removerFoto();
     limparResultadoCurriculo();
   } else {
     resetarEntrevista();
@@ -1195,6 +1275,7 @@ function cancelarEntrevista() {
   el(id)?.addEventListener("input", () => clearFieldError(id));
 });
 el("habilidades")?.addEventListener("input", () => clearFieldError("formacao"));
+el("foto")?.addEventListener("change", evento => carregarFoto(evento.target.files?.[0]));
 
 el("resposta")?.addEventListener("keydown", evento => {
   if (evento.key === "Enter" && !evento.shiftKey && !evento.isComposing) {
