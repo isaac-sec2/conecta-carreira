@@ -144,26 +144,6 @@ h1, h2, h3, h4 {
 
 /* ---------- Utilities (do Lovable, como classes normais) ---------- */
 
-.bg-gradient-hero {
-  background-image: var(--gradient-hero);
-}
-
-.bg-gradient-primary {
-  background-image: var(--gradient-primary);
-}
-
-.bg-gradient-soft {
-  background-image: var(--gradient-soft);
-}
-
-.shadow-elegant {
-  box-shadow: var(--shadow-elegant);
-}
-
-.shadow-card {
-  box-shadow: var(--shadow-card);
-}
-
 .shadow-glow {
   box-shadow: var(--shadow-glow);
 }
@@ -200,10 +180,6 @@ h1, h2, h3, h4 {
     opacity: 1;
     transform: none;
   }
-}
-
-.animate-bubble-in {
-  animation: bubble-in 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 /* Glassmorphism */
@@ -1022,12 +998,6 @@ textarea {
     margin-bottom: 16px;
   }
 
-  .skeleton-avatar {
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-  }
-
   /* ---------- Form Validation ---------- */
   .form-group { margin-bottom: 0; }
   .form-group.has-error input,
@@ -1051,12 +1021,6 @@ textarea {
   @keyframes fade-in {
     from { opacity: 0; transform: translateY(-4px); }
     to { opacity: 1; transform: none; }
-  }
-
-  .form-hint {
-    color: var(--muted-foreground);
-    font-size: 0.8rem;
-    margin-top: 6px;
   }
 
   /* ---------- Progress Indicator (Entrevista) ---------- */

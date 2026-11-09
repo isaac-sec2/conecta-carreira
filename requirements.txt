@@ -3,4 +3,3 @@ flask-cors==6.0.0
 requests==2.33.0
 python-dotenv==1.2.2
 gunicorn==26.2.0
-pytest==9.0.3

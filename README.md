@@ -30,6 +30,7 @@ conecta-carreira/
 ├── Dockerfile
 ├── render.yaml
 ├── requirements.txt
+├── requirements-dev.txt
 └── README.md
 ```
 
@@ -71,7 +72,7 @@ curl -X POST http://localhost:5000/api/gemini \
 ## Testes e segurança
 
 ```bash
-pip install -r requirements.txt
+pip install -r requirements-dev.txt
 python -m pytest -q
 node --test tests/test_frontend.mjs
 ```

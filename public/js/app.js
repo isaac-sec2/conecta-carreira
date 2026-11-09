@@ -1325,7 +1325,6 @@ botaoTema?.addEventListener("click", () => {
   } else {
     document.documentElement.setAttribute("data-tema", "escuro");
   }
-  document.documentElement.classList.toggle("dark", !estaEscuro);
   try { window.localStorage?.setItem(CHAVE_TEMA, estaEscuro ? "claro" : "escuro"); } catch { }
   atualizarIconeTema(!estaEscuro);
 });

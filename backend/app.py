@@ -326,9 +326,9 @@ def gemini():
         return jsonify({"erro": "Envie Content-Type: application/json."}), 415
 
     try:
-        dados = request.get_json()
-    except (ValueError, TypeError, RecursionError):
-        return jsonify({"erro": "Corpo JSON inválido."}), 400
+        dados = request.get_json(silent=True)
+    except RecursionError:
+        dados = None
     if not isinstance(dados, dict):
         return jsonify({"erro": "Envie um objeto JSON válido."}), 400
 

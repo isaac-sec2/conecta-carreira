@@ -112,6 +112,7 @@ def test_json_invalido_retorna_400(client, monkeypatch):
     ativar_chave(monkeypatch)
     response = client.post("/api/gemini", data="{", content_type="application/json")
     assert response.status_code == 400
+    assert response.get_json()["erro"]
 
 
 def test_json_nao_objeto_retorna_400(client, monkeypatch):
@@ -488,6 +489,7 @@ def test_json_profundamente_aninhado_retorna_400(client, monkeypatch):
     raw = b'{"prompt":' + (b"[" * 2000) + b"0" + (b"]" * 2000) + b"}"
     response = client.post("/api/gemini", data=raw, content_type="application/json")
     assert response.status_code == 400
+    assert response.get_json()["erro"]
 
 
 def test_cors_real_depende_da_configuracao_de_importacao():
