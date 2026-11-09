@@ -6,20 +6,8 @@ function mostrarToast(tipo, titulo, mensagem = "") {
   const container = el("toast-container");
   if (!container) return;
   const tipoSeguro = ["success", "error", "warning", "info"].includes(tipo) ? tipo : "info";
-  const icons = {
-    success: "check-circle",
-    error: "x-circle",
-    warning: "alert-triangle",
-    info: "info"
-  };
   const toast = document.createElement("div");
   toast.className = `toast toast--${tipoSeguro}`;
-  const iconWrap = document.createElement("span");
-  iconWrap.className = "toast__icon";
-  iconWrap.setAttribute("aria-hidden", "true");
-  const icon = document.createElement("i");
-  icon.setAttribute("data-lucide", icons[tipoSeguro]);
-  iconWrap.appendChild(icon);
   const content = document.createElement("div");
   content.className = "toast__content";
   const title = document.createElement("div");
@@ -36,13 +24,10 @@ function mostrarToast(tipo, titulo, mensagem = "") {
   close.type = "button";
   close.className = "toast__close";
   close.setAttribute("aria-label", "Fechar");
-  const closeIcon = document.createElement("i");
-  closeIcon.setAttribute("data-lucide", "x");
-  close.appendChild(closeIcon);
+  close.textContent = "×";
   close.addEventListener("click", () => toast.remove());
-  toast.append(iconWrap, content, close);
+  toast.append(content, close);
   container.appendChild(toast);
-  window.lucide?.createIcons?.();
   window.setTimeout(() => {
     if (!toast.isConnected) return;
     toast.classList.add("removing");
@@ -58,7 +43,7 @@ function toastWarning(titulo, mensagem) { mostrarToast("warning", titulo, mensag
 function setFieldError(fieldId, message) {
   const field = el(fieldId);
   if (!field) return;
-  const group = field.closest(".form-group");
+  const group = field.closest(".field");
   const errorEl = el(`err-${fieldId}`);
   group?.classList.add("has-error");
   if (errorEl) {
@@ -76,7 +61,7 @@ function setFieldError(fieldId, message) {
 function clearFieldError(fieldId) {
   const field = el(fieldId);
   if (!field) return;
-  const group = field.closest(".form-group");
+  const group = field.closest(".field");
   const errorEl = el(`err-${fieldId}`);
   group?.classList.remove("has-error");
   if (errorEl) {
@@ -116,13 +101,25 @@ function validateCurriculoForm() {
     clearFieldError("objetivo");
   }
 
-  const telefone = contato.replace(/\D/g, "");
-  const telefoneValido = /^\+?[\d\s().-]+$/.test(contato) && telefone.length >= 10 && telefone.length <= 15;
-  if (contato && !emailRegex.test(contato) && !(phoneRegex.test(contato) && telefoneValido)) {
+  const contatoValido = parte => {
+    const digitos = parte.replace(/\D/g, "").length;
+    return emailRegex.test(parte) || (phoneRegex.test(parte) && digitos >= 10 && digitos <= 15);
+  };
+  if (!contato) {
+    setFieldError("contato", "Informe um email ou telefone");
+    valid = false;
+  } else if (!contato.split("|").every(parte => contatoValido(parte.trim()))) {
     setFieldError("contato", "Email ou telefone inválido");
     valid = false;
   } else {
     clearFieldError("contato");
+  }
+
+  if (!(el("formacao")?.value || "").trim() && !(el("habilidades")?.value || "").trim()) {
+    setFieldError("formacao", "Preencha a formação ou as habilidades");
+    valid = false;
+  } else {
+    clearFieldError("formacao");
   }
 
   [["linkedin", "LinkedIn"], ["github", "GitHub"]].forEach(([id, plataforma]) => {
@@ -143,42 +140,23 @@ const STORAGE_KEYS = {
   ENTREVISTAS: "conecta-entrevistas"
 };
 
-const historicoSessao = {
-  curriculo: [],
-  entrevista: []
-};
-
-function clonarRegistro(registro) {
-  try {
-    return JSON.parse(JSON.stringify(registro));
-  } catch {
-    return { ...registro };
-  }
-}
-
-function salvarHistorico(tipo, dados) {
-  const lista = tipo === "curriculo" ? historicoSessao.curriculo : historicoSessao.entrevista;
-  const registro = clonarRegistro({ ...dados, timestamp: Date.now() });
-  lista.unshift(registro);
-  if (lista.length > 20) lista.length = 20;
-}
-
-function obterHistorico(tipo) {
-  const lista = tipo === "curriculo" ? historicoSessao.curriculo : historicoSessao.entrevista;
-  return lista.map(clonarRegistro);
-}
-
 function removerStorageLegado() {
   for (const key of Object.values(STORAGE_KEYS)) {
     try { window.localStorage?.removeItem(key); } catch { }
   }
 }
 
+// Só formatação de texto: imagem, vídeo e style carregam URLs externas sozinhos e poderiam vazar dados pessoais.
+const FILTRO_MARKDOWN = Object.freeze({
+  ALLOWED_TAGS: ["h1", "h2", "h3", "h4", "h5", "h6", "p", "br", "hr", "ul", "ol", "li", "strong", "em", "del", "code", "pre", "blockquote", "a", "table", "thead", "tbody", "tr", "th", "td"],
+  ALLOWED_ATTR: ["href", "title"]
+});
+
 function markdownParaHtml(texto) {
   const fonte = String(texto || "");
   if (window.marked?.parse && window.DOMPurify?.sanitize) {
     try {
-      return window.DOMPurify.sanitize(window.marked.parse(fonte));
+      return window.DOMPurify.sanitize(window.marked.parse(fonte), FILTRO_MARKDOWN);
     } catch { }
   }
   return escaparHtml(fonte).replace(/\n/g, "<br>");
@@ -192,7 +170,7 @@ function linkSeguro(valor, dominioPermitido = "") {
     if (dominioPermitido) {
       const dominio = dominioPermitido.toLowerCase().replace(/^www\./, "");
       const host = url.hostname.toLowerCase();
-      if (host !== dominio && host !== `www.${dominio}`) return "";
+      if (host !== dominio && !host.endsWith(`.${dominio}`)) return "";
     }
     return url.toString();
   } catch {
@@ -205,7 +183,7 @@ function normalizarPerfil(valor, base) {
   if (!texto) return "";
   const dominio = new URL(base).hostname.replace(/^www\./, "");
   if (/^https?:\/\//i.test(texto)) return linkSeguro(texto, dominio);
-  if (/^(www\.)?(linkedin\.com|github\.com)\//i.test(texto)) return linkSeguro(`https://${texto}`, dominio);
+  if (/^([a-z0-9-]+\.)?(linkedin\.com|github\.com)\//i.test(texto)) return linkSeguro(`https://${texto}`, dominio);
   return "";
 }
 
@@ -237,7 +215,6 @@ const CAMPOS_CURRICULO = [
 let gerandoCurriculo = false;
 let abortControllerCurriculo = null;
 let ultimoMarkdownCurriculo = "";
-let ultimoPromptCurriculo = null;
 let ultimoSnapshotCurriculo = null;
 let geracaoCurriculoToken = 0;
 let progressoTimer = null;
@@ -270,39 +247,40 @@ Considere que o candidato pode ser estudante do ensino médio, estar buscando o 
 
 FORMATO OBRIGATÓRIO:
 ## Resumo Profissional
-Um resumo com 4 a 6 frases completas, específico para a vaga.
+Um resumo com 2 a 5 frases completas, específico para a vaga, usando só fatos informados. Com poucos dados, escreva menos frases em vez de preencher.
 ## Formação Acadêmica
 Use bullets com curso, instituição e situação. Se a instituição não foi informada, escreva apenas curso + situação — NUNCA invente nome de instituição nem use placeholders como "Instituição de Ensino Superior".
 ## Experiência Profissional
-Use bullets com atividades e aprendizados concretos. Se não houver experiência formal, escreva "Ainda não possui experiência formal" e siga para projetos.
+Use bullets com atividades e aprendizados concretos. Se nenhuma experiência foi informada, omita esta seção.
 ## Projetos Relevantes
-Se não houver experiência formal, crie até 2 projetos acadêmicos ou autodidatas plausíveis usando SOMENTE as habilidades e a formação informadas. Para cada projeto, escreva o título em negrito seguido de 2 a 4 bullets com o que foi feito e aprendido. NÃO escreva parágrafo introdutório — vá direto aos bullets, sem repetir a mesma informação duas vezes.
+Inclua somente projetos que o candidato informou. Para cada projeto, escreva o título em negrito seguido de 2 a 4 bullets com o que foi feito e aprendido. NÃO escreva parágrafo introdutório — vá direto aos bullets, sem repetir a mesma informação duas vezes. Se nenhum projeto foi informado, omita esta seção.
 ## Habilidades
-Separe habilidades técnicas e comportamentais em bullets.
+Liste só as habilidades informadas pelo candidato, separando técnicas e comportamentais em bullets. Nunca copie habilidades da descrição da vaga nem acrescente qualidades pessoais.
 ## Certificações e Cursos
-Inclua somente os que foram informados, mantendo o status dado pelo candidato (concluído / em andamento / estudando para). Se o status não foi informado, liste o nome sem afirmar conclusão e sem afirmar que é certificação obtida.
+Inclua somente o que o candidato chamou claramente de curso ou certificação; habilidades soltas como "Excel básico" ficam só em Habilidades. Mantenha o status dado pelo candidato (concluído / em andamento / estudando para). Se o status não foi informado, liste o nome sem afirmar conclusão e sem afirmar que é certificação obtida.
 ## Idiomas
 Inclua somente o idioma informado pelo candidato. Se não houver idioma informado, omita esta seção completamente.
 ## Pontos fortes para a vaga
 Quando houver descrição da vaga, liste de 2 a 5 combinações entre o perfil e a vaga, incluindo potencial e conhecimentos em desenvolvimento quando fizer sentido. Quando não houver descrição, omita esta seção.
 ## Próximos passos para se preparar
-Quando houver descrição da vaga, liste de 2 a 4 habilidades ou experiências que o candidato pode desenvolver. Explique cada ponto de forma acolhedora e prática. Quando não houver descrição, omita esta seção.
+Liste de 2 a 4 habilidades, experiências ou ideias de projeto simples que o candidato pode desenvolver para a vaga. Explique cada ponto de forma acolhedora e prática. Ideias de projeto são sugestões para o futuro, nunca fatos do currículo.
 
 REGRAS:
 - Retorne somente o Markdown do currículo, sem comentários antes ou depois.
+- Use exatamente os títulos acima, com ##. Omita qualquer seção do currículo sem dados informados.
+- "Pontos fortes para a vaga" e "Próximos passos para se preparar" são orientações ao candidato: ficam no fim, falam diretamente com ele e não fazem parte do currículo.
 - Não repita a mesma informação em duas seções diferentes.
 - Padronize o nome da vaga/objetivo com capitalização correta (ex.: "Analista SOC"), sem mudar o sentido do que o candidato escreveu.
 - Não escreva frases genéricas como "profissional dedicado" sem explicar evidências concretas.
-- Não invente empresas, empregos, certificados, idiomas, tecnologias, números ou experiências.
+- Não invente empresas, empregos, projetos, certificados, idiomas, tecnologias, habilidades, números ou experiências.
 - Pode transformar os dados em descrições profissionais melhores, mas sem criar fatos.
 - Nunca use linguagem de julgamento, como "não tem perfil", "inexperiente", "falta", "ausência" ou "não atende". Prefira "pode desenvolver", "ainda não foi informado" ou "seria interessante praticar".
 - Não compare um estudante com um profissional sênior. Se a vaga exigir experiência que o candidato ainda não possui, apresente isso como um objetivo de desenvolvimento, sem desqualificá-lo.
-- Reescreva experiências, projetos escolares, cursos e atividades com verbos de ação fortes e incorpore palavras-chave da vaga somente quando forem compatíveis com os dados reais.
-- Não inclua LinkedIn ou GitHub: esses links serão inseridos separadamente.
+- Reescreva experiências, projetos escolares, cursos e atividades com verbos de ação fortes e use palavras-chave da vaga somente para descrever o que o candidato informou. A descrição da vaga nunca é fonte de fatos sobre o candidato.
+- Não inclua título com o nome, contato, LinkedIn ou GitHub: esses dados serão inseridos separadamente.
 
 DADOS DO CANDIDATO:
 Nome: ${snapshot.nome}
-Contato: ${snapshot.contato || "Não informado"}
 Vaga desejada: ${snapshot.objetivo}
 Formação: ${snapshot.formacao || "Não informada"}
 Experiências: ${snapshot.experiencia || "Nenhuma formal"}
@@ -316,24 +294,21 @@ Estado: ${snapshot.estado || "Não informado"}
 Idioma: ${snapshot.idioma || "Não informado"}`;
 }
 
-const LIMITE_PROMPT_CLIENTE = typeof LIMITE_MAX_PROMPT === "number" ? LIMITE_MAX_PROMPT : 12000;
+function separarOrientacao(markdown) {
+  const secoes = String(markdown || "").split(/^(?=#{1,6}\s)/m);
+  const ehOrientacao = secao => /^#{1,6}\s*\**\s*(pontos fortes|pr[oó]ximos passos)/i.test(secao);
+  return {
+    curriculo: secoes.filter(secao => !ehOrientacao(secao)).join(""),
+    orientacao: secoes.filter(ehOrientacao).join("")
+  };
+}
 
-function validarLimitePrompt(prompt) {
-  const texto = String(prompt || "");
-  if (!texto.trim()) {
-    const erro = new Error("O pedido não pode ficar vazio.");
-    erro.codigo = "PROMPT_VAZIO";
-    erro.retryable = false;
-    throw erro;
-  }
-  if (Array.from(texto).length > LIMITE_PROMPT_CLIENTE) {
-    const erro = new Error(`O pedido excede o limite de ${LIMITE_PROMPT_CLIENTE} caracteres. Reduza os dados e tente novamente.`);
-    erro.status = 400;
-    erro.codigo = "PROMPT_TOO_LARGE";
-    erro.retryable = false;
-    throw erro;
-  }
-  return texto;
+function renderizarOrientacao(markdown) {
+  const box = el("orientacao-curriculo");
+  const texto = el("orientacao-curriculo-texto");
+  if (!box || !texto) return;
+  texto.innerHTML = markdownParaHtml(markdown);
+  box.hidden = !String(markdown || "").trim();
 }
 
 function mostrarErroCurriculo(mensagem) {
@@ -443,7 +418,6 @@ function pararProgressoCurriculo(ok, token = geracaoCurriculoToken) {
 
 function limparResultadoCurriculo() {
   ultimoMarkdownCurriculo = "";
-  ultimoPromptCurriculo = null;
   ultimoSnapshotCurriculo = null;
   const caixa = el("resultado-curriculo");
   if (caixa) {
@@ -456,6 +430,9 @@ function limparResultadoCurriculo() {
   if (botoes) botoes.style.display = "none";
   const skeleton = el("skeleton-curriculo");
   if (skeleton) skeleton.hidden = true;
+  renderizarOrientacao("");
+  const avisoCorte = el("aviso-corte-curriculo");
+  if (avisoCorte) avisoCorte.hidden = true;
   const btnEditar = el("btn-editar");
   if (btnEditar) {
     editandoCurriculo = false;
@@ -475,12 +452,6 @@ async function gerarCurriculo() {
   const promptCompleto = montarPromptCurriculo(snapshot);
   limparResultadoCurriculo();
   esconderErroCurriculo();
-  try {
-    validarLimitePrompt(promptCompleto);
-  } catch (erro) {
-    mostrarErroCurriculo(erro.message);
-    return;
-  }
 
   const requestId = geracaoCurriculoToken + 1;
   geracaoCurriculoToken = requestId;
@@ -513,19 +484,24 @@ async function gerarCurriculo() {
       if (!ehAtual()) return;
       renderizarPreviaCurriculo(caixa, snapshot.nome, acumulado);
     }, requestId);
+    let cortado = false;
     const respostaMarkdown = await chamarGemini(promptCompleto, aoTrecho, {
-      maxTokens: 3072,
+      maxTokens: 4096,
       temperature: 0.55,
       signal: controller.signal,
-      retries: 2
+      retries: 2,
+      aoCortar: () => { cortado = true; }
     });
     if (!ehAtual()) return;
     if (!respostaMarkdown.trim()) throw new Error("A IA retornou uma resposta vazia.");
 
-    ultimoMarkdownCurriculo = respostaMarkdown;
-    ultimoPromptCurriculo = promptCompleto;
+    const { curriculo, orientacao } = separarOrientacao(respostaMarkdown);
+    ultimoMarkdownCurriculo = curriculo;
     ultimoSnapshotCurriculo = snapshot;
-    renderCurriculoMarkdown(respostaMarkdown, caixa, snapshot);
+    renderCurriculoMarkdown(curriculo, caixa, snapshot);
+    renderizarOrientacao(orientacao);
+    const avisoCorte = el("aviso-corte-curriculo");
+    if (avisoCorte) avisoCorte.hidden = !cortado;
     if (caixa) {
       caixa.style.display = "block";
       caixa.setAttribute("aria-busy", "false");
@@ -537,7 +513,6 @@ async function gerarCurriculo() {
     if (botoes) botoes.style.display = "flex";
     atualizarBotaoEditar(false);
     toastSuccess("Currículo gerado!", "Revise, edite se quiser, e baixe em PDF ou texto");
-    salvarHistorico("curriculo", { snapshot, markdown: respostaMarkdown });
   } catch (erro) {
     if (!ehAtual() && !controller.signal.aborted) return;
     pararProgressoCurriculo(false, requestId);
@@ -561,7 +536,6 @@ async function gerarCurriculo() {
         botao.innerHTML = textoOriginalBotao;
       }
       if (btnCancelar) btnCancelar.hidden = true;
-      window.lucide?.createIcons?.();
     }
   }
 }
@@ -608,7 +582,6 @@ function renderCurriculoMarkdown(texto, caixa, dados) {
   markdown.className = "curriculo-markdown";
   markdown.innerHTML = markdownParaHtml(texto);
   caixa.replaceChildren(header, markdown);
-  window.lucide?.createIcons?.();
 }
 
 async function copiarTextoFallback(texto) {
@@ -651,7 +624,15 @@ function restaurarBotaoPdf(botao, textoOriginal) {
   if (!botao) return;
   botao.innerHTML = textoOriginal;
   botao.disabled = false;
-  window.lucide?.createIcons?.();
+}
+
+function textoItemPdf(item) {
+  if (item.tagName === "TR") return [...item.cells].map(celula => celula.textContent.trim()).join(" | ");
+  if (item.tagName !== "LI") return item.textContent;
+  // Sublistas têm seus próprios <li>; sem removê-las aqui, o texto sairia duas vezes.
+  const copia = item.cloneNode(true);
+  copia.querySelectorAll("ul, ol").forEach(lista => lista.remove());
+  return `• ${copia.textContent}`;
 }
 
 function baixarPDF() {
@@ -664,9 +645,8 @@ function baixarPDF() {
   }
   const textoOriginal = botao?.innerHTML || "";
   if (botao) {
-    botao.innerHTML = '<i data-lucide="loader" aria-hidden="true" style="animation: spin 1s linear infinite"></i> Gerando...';
+    botao.textContent = "Gerando...";
     botao.disabled = true;
-    window.lucide?.createIcons?.();
   }
   try {
     if (!window.jspdf?.jsPDF) throw new Error("Gerador de PDF indisponível. Recarregue a página e tente novamente.");
@@ -688,10 +668,10 @@ function baixarPDF() {
       doc.text(linhas, margem, y);
       y += linhas.length * alturaLinha + espacamento;
     };
-    elemento.querySelectorAll(".curriculo-header h2, .curriculo-header p, .curriculo-markdown h2, .curriculo-markdown h3, .curriculo-markdown h4, .curriculo-markdown p, .curriculo-markdown li").forEach(item => {
+    elemento.querySelectorAll(".curriculo-header h2, .curriculo-header p, .curriculo-markdown :is(h1, h2, h3, h4, li, tr), .curriculo-markdown p:not(li p)").forEach(item => {
       const tag = item.tagName.toLowerCase();
-      const titulo = ["h2", "h3", "h4"].includes(tag);
-      escrever(item.textContent, titulo ? (tag === "h2" ? 18 : 12) : 10, titulo, titulo ? 2 : 1);
+      const titulo = ["h1", "h2", "h3", "h4"].includes(tag);
+      escrever(textoItemPdf(item), titulo ? (tag === "h1" || tag === "h2" ? 18 : 12) : 10, titulo, titulo ? 2 : 1);
     });
     doc.save(`${nome.replace(/\s+/g, "_")}_curriculo.pdf`);
     restaurarBotaoPdf(botao, textoOriginal);
@@ -717,13 +697,7 @@ function atualizarBotaoEditar(editando) {
   const btn = el("btn-editar");
   const caixa = el("resultado-curriculo");
   if (!btn || !caixa) return;
-  btn.replaceChildren();
-  const icon = document.createElement("i");
-  icon.setAttribute("data-lucide", editando ? "check" : "pencil");
-  icon.setAttribute("aria-hidden", "true");
-  const texto = document.createElement("span");
-  texto.textContent = editando ? "Salvar edição" : "Editar";
-  btn.append(icon, texto);
+  btn.textContent = editando ? "Salvar edição" : "Editar";
   if (caixa) {
     caixa.contentEditable = editando ? "true" : "false";
     caixa.classList.toggle("editando", editando);
@@ -732,7 +706,6 @@ function atualizarBotaoEditar(editando) {
     caixa.focus?.();
     toastInfo("Modo edição", "Clique no texto e corrija. Depois clique em Salvar edição.");
   }
-  window.lucide?.createIcons?.();
 }
 
 function alternarEdicaoCurriculo() {
@@ -788,10 +761,10 @@ function preencherExemplo() {
 }
 
 function limparHistorico(tipo) {
-  const lista = tipo === "curriculo" ? historicoSessao.curriculo : historicoSessao.entrevista;
-  lista.length = 0;
   removerStorageLegado();
   if (tipo === "curriculo") {
+    el("area-vaga")?.remove();
+    contextoVaga = "";
     limparResultadoCurriculo();
   } else {
     resetarEntrevista();
@@ -815,20 +788,14 @@ let perguntaAtual = 0;
 let entrevistaCarregando = false;
 let abortControllerEntrevista = null;
 let areaEntrevista = "";
+let contextoVaga = "";
+let contextoEntrevista = "";
 let operacaoEntrevista = 0;
-let ultimaAcaoEntrevista = null;
 
-function definirRotuloBotaoIniciar(texto, icone = "play") {
+function definirRotuloBotaoIniciar(texto) {
   const botao = el("btn-iniciar");
   if (!botao) return;
-  botao.replaceChildren();
-  const icon = document.createElement("i");
-  icon.setAttribute("data-lucide", icone);
-  icon.setAttribute("aria-hidden", "true");
-  const label = document.createElement("span");
-  label.textContent = texto;
-  botao.append(icon, label);
-  window.lucide?.createIcons?.();
+  botao.textContent = texto;
 }
 
 function definirStatusEntrevista(texto) {
@@ -862,7 +829,7 @@ function definirEstadoEntrevista(estado) {
   if (progressSteps) progressSteps.hidden = estado === ESTADOS_ENTREVISTA.IDLE;
   if (chat) chat.setAttribute("aria-busy", String(entrevistaCarregando));
   if (estado === ESTADOS_ENTREVISTA.IDLE) definirRotuloBotaoIniciar("Começar simulação");
-  if (estado === ESTADOS_ENTREVISTA.COMPLETED) definirRotuloBotaoIniciar("Começar novamente", "rotate-ccw");
+  if (estado === ESTADOS_ENTREVISTA.COMPLETED) definirRotuloBotaoIniciar("Começar novamente");
   if (estado === ESTADOS_ENTREVISTA.LOADING_QUESTION) definirStatusEntrevista("Preparando a próxima pergunta.");
   if (estado === ESTADOS_ENTREVISTA.WAITING_ANSWER) definirStatusEntrevista("Sua resposta está sendo esperada.");
   if (estado === ESTADOS_ENTREVISTA.LOADING_FEEDBACK) definirStatusEntrevista("Preparando seu feedback final.");
@@ -899,7 +866,7 @@ function adicionarMensagem(texto, quem) {
   if (!chat) return null;
   el("empty-state")?.remove();
   const mensagem = document.createElement("div");
-  mensagem.className = `msg rounded-2xl rounded-tl-none ${quem === "ia" ? "msg-ia" : "msg-user"}`;
+  mensagem.className = `msg ${quem === "ia" ? "msg-ia" : "msg-user"}`;
   mensagem.setAttribute("role", "group");
   mensagem.setAttribute("aria-label", quem === "ia" ? "Mensagem do recrutador" : "Sua resposta");
   if (quem === "ia") mensagem.innerHTML = markdownParaHtml(texto);
@@ -913,7 +880,7 @@ function mostrarDigitando() {
   const chat = el("chat-box");
   if (!chat) return null;
   const mensagem = document.createElement("div");
-  mensagem.className = "msg msg-ia msg-digitando rounded-2xl rounded-tl-none";
+  mensagem.className = "msg msg-ia msg-digitando";
   mensagem.setAttribute("aria-hidden", "true");
   mensagem.textContent = "digitando...";
   chat.appendChild(mensagem);
@@ -947,7 +914,7 @@ function adicionarMensagemErro(texto, acao) {
   if (!chat) return null;
   el("empty-state")?.remove();
   const mensagem = document.createElement("div");
-  mensagem.className = "msg msg-ia msg-erro rounded-2xl rounded-tl-none";
+  mensagem.className = "msg msg-ia msg-erro";
   mensagem.setAttribute("role", "alert");
   const textoErro = document.createElement("p");
   textoErro.textContent = String(texto || "Não foi possível concluir a ação.");
@@ -955,7 +922,7 @@ function adicionarMensagemErro(texto, acao) {
   if (typeof acao === "function") {
     const botao = document.createElement("button");
     botao.type = "button";
-    botao.className = "btn btn-tentar";
+    botao.className = "btn btn--secondary";
     botao.textContent = "Tentar novamente";
     botao.addEventListener("click", () => {
       mensagem.remove();
@@ -979,9 +946,20 @@ function ehCancelamentoEntrevista(erro, controller) {
     || String(erro?.message || "").includes("cancelada");
 }
 
-function promptPrimeiraPerguntaEntrevista(area) {
-  return `Você é um orientador de carreira e recrutador experiente, simulando uma entrevista para **${area}** com um estudante do ensino médio ou candidato ao primeiro emprego.
+function montarContextoVaga(snapshot) {
+  // Limite para sobrar espaço ao histórico dentro do máximo de 12000 caracteres do prompt.
+  const dados = [
+    `Formação: ${snapshot.formacao || "não informada"}`,
+    `Experiências: ${snapshot.experiencia || "não informadas"}`,
+    `Habilidades e cursos: ${snapshot.habilidades || "não informados"}`,
+    `Descrição da vaga: ${snapshot.descricaoVaga || "não informada"}`
+  ].join("\n").slice(0, 3000);
+  return `\nUse estes dados para fazer perguntas específicas para esta vaga e este candidato, sem presumir nada além deles:\n${dados}\n`;
+}
 
+function promptPrimeiraPerguntaEntrevista(area, contexto = "") {
+  return `Você é um orientador de carreira e recrutador experiente, simulando uma entrevista para **${area}** com um estudante do ensino médio ou candidato ao primeiro emprego.
+${contexto}
 REGRAS:
 - Faça APENAS a 1ª pergunta, direta, acolhedora e fácil de responder
 - Não presuma experiência profissional. Aceite exemplos da escola, cursos, projetos, voluntariado, família e atividades do dia a dia
@@ -990,8 +968,9 @@ REGRAS:
 - Retorne APENAS a pergunta, sem introduções nem "Aqui está a pergunta:"`;
 }
 
-function promptProximaPerguntaEntrevista(area, historico, numero) {
+function promptProximaPerguntaEntrevista(area, historico, numero, contexto = "") {
   return `Você é um orientador de carreira conduzindo uma entrevista para **${area}** com um estudante ou candidato ao primeiro emprego.
+${contexto}
 Histórico:
 ${[...historico].join("\n")}
 
@@ -1005,8 +984,9 @@ REGRAS:
 - Tom profissional, encorajador e conciso; máximo 3 frases`;
 }
 
-function promptFeedbackEntrevista(area, historico) {
+function promptFeedbackEntrevista(area, historico, contexto = "") {
   return `Você é um orientador de carreira acolhedor. A entrevista para **${area}** foi concluída por um estudante ou candidato ao primeiro emprego.
+${contexto}
 Histórico completo:
 ${[...historico].join("\n")}
 
@@ -1016,18 +996,11 @@ Dê um feedback final construtivo e fácil de entender:
 3. Uma sugestão de resposta ou atitude para continuar treinando
 4. Encerramento motivador e realista
 
-Formato: use os títulos "Pontos fortes", "Para praticar" e "Próximo passo". Parágrafos curtos, tom encorajador, sem dar nota ou reprovar. MÁXIMO 220 palavras.`;
+Formato: use os títulos "## Pontos fortes", "## Para praticar" e "## Próximo passo", cada um em linha própria. Parágrafos curtos, tom encorajador, sem dar nota ou reprovar. MÁXIMO 220 palavras.`;
 }
 
 function solicitarEntrevista(prompt, tipo, token, concluir) {
   if (token !== operacaoEntrevista) return;
-  try {
-    validarLimitePrompt(prompt);
-  } catch (erro) {
-    definirEstadoEntrevista(ESTADOS_ENTREVISTA.ERROR);
-    adicionarMensagemErro(formatarErroEntrevista(erro));
-    return;
-  }
 
   const estadoSolicitacao = tipo === "feedback" ? ESTADOS_ENTREVISTA.LOADING_FEEDBACK : ESTADOS_ENTREVISTA.LOADING_QUESTION;
   definirEstadoEntrevista(estadoSolicitacao);
@@ -1038,9 +1011,10 @@ function solicitarEntrevista(prompt, tipo, token, concluir) {
   const aoTrecho = criarAtualizadorDigitando(digitando, ativo);
 
   return chamarGemini(prompt, aoTrecho, {
-    maxTokens: tipo === "feedback" ? 500 : 400,
+    maxTokens: tipo === "feedback" ? 1024 : 400,
     temperature: 0.6,
-    signal: controller.signal
+    signal: controller.signal,
+    aoCortar: () => toastWarning("Resposta incompleta", "A IA atingiu o limite de tamanho e o texto foi cortado.")
   }).then(resposta => {
     if (!ativo()) {
       digitando?.remove();
@@ -1057,7 +1031,6 @@ function solicitarEntrevista(prompt, tipo, token, concluir) {
       removerMensagensErroEntrevista();
       solicitarEntrevista(prompt, tipo, token, concluir);
     };
-    ultimaAcaoEntrevista = retry;
     adicionarMensagemErro(formatarErroEntrevista(erro), retry);
   }).finally(() => {
     if (token === operacaoEntrevista && abortControllerEntrevista === controller) {
@@ -1081,9 +1054,9 @@ async function iniciarEntrevista() {
   abortControllerEntrevista?.abort();
   const token = operacaoEntrevista;
   areaEntrevista = area;
+  contextoEntrevista = selectArea?.selectedOptions[0]?.id === "area-vaga" ? contextoVaga : "";
   historicoChat = [];
   perguntaAtual = 1;
-  ultimaAcaoEntrevista = null;
   const chat = el("chat-box");
   if (chat) chat.replaceChildren();
   const progressSteps = el("progress-steps");
@@ -1095,9 +1068,9 @@ async function iniciarEntrevista() {
   const btnCancelar = el("btn-cancelar-entrevista");
   if (btnCancelar) btnCancelar.hidden = false;
   definirEstadoEntrevista(ESTADOS_ENTREVISTA.LOADING_QUESTION);
-  adicionarMensagem(`Ótimo! Vamos simular uma entrevista para **${areaEntrevista}**. Serão ${TOTAL_PERGUNTAS} perguntas. Preparado(a)?`, "ia");
+  adicionarMensagem(`Ótimo! Vamos simular uma entrevista para **${areaEntrevista}**. Serão ${TOTAL_PERGUNTAS} perguntas e um feedback no final.`, "ia");
   atualizarProgresso();
-  const prompt = promptPrimeiraPerguntaEntrevista(areaEntrevista);
+  const prompt = promptPrimeiraPerguntaEntrevista(areaEntrevista, contextoEntrevista);
   return solicitarEntrevista(prompt, "question", token, (primeiraPergunta, bolha) => {
     if (token !== operacaoEntrevista) {
       bolha?.remove();
@@ -1125,7 +1098,7 @@ async function enviarResposta() {
     const numero = perguntaAtual + 1;
     perguntaAtual = numero;
     atualizarProgresso();
-    const prompt = promptProximaPerguntaEntrevista(areaEntrevista, historicoChat, numero);
+    const prompt = promptProximaPerguntaEntrevista(areaEntrevista, historicoChat, numero, contextoEntrevista);
     return solicitarEntrevista(prompt, "question", token, (proxima, bolha) => {
       if (token !== operacaoEntrevista) {
         bolha?.remove();
@@ -1140,7 +1113,9 @@ async function enviarResposta() {
     });
   }
 
-  const prompt = promptFeedbackEntrevista(areaEntrevista, historicoChat);
+  perguntaAtual = TOTAL_PERGUNTAS + 1;
+  atualizarProgresso();
+  const prompt = promptFeedbackEntrevista(areaEntrevista, historicoChat, contextoEntrevista);
   return solicitarEntrevista(prompt, "feedback", token, (feedback, bolha) => {
     if (token !== operacaoEntrevista) {
       bolha?.remove();
@@ -1148,32 +1123,23 @@ async function enviarResposta() {
     }
     bolha?.classList.remove("msg-digitando");
     historicoChat.push(`Feedback: ${feedback}`);
-    perguntaAtual = TOTAL_PERGUNTAS;
     definirEstadoEntrevista(ESTADOS_ENTREVISTA.COMPLETED);
     anunciarRecrutador(feedback);
     atualizarProgresso();
-    salvarHistorico("entrevista", { area: areaEntrevista, historico: [...historicoChat] });
     toastSuccess("Entrevista finalizada!", "Confira seu feedback abaixo");
   });
 }
 
 function criarEmptyStateEntrevista() {
   const empty = document.createElement("div");
-  empty.className = "empty-state";
+  empty.className = "vazio";
   empty.id = "empty-state";
-  const icon = document.createElement("div");
-  icon.className = "empty-state__icon";
-  icon.setAttribute("aria-hidden", "true");
-  const iconElement = document.createElement("i");
-  iconElement.setAttribute("data-lucide", "message-square");
-  icon.appendChild(iconElement);
-  const title = document.createElement("div");
-  title.className = "empty-state__title";
-  title.textContent = "Simulação pronta para começar";
+  const title = document.createElement("p");
+  title.className = "vazio__titulo";
+  title.textContent = "A conversa aparece aqui";
   const description = document.createElement("p");
-  description.className = "empty-state__desc";
-  description.textContent = 'Selecione uma área e clique em "Começar simulação" para treinar com nosso recrutador virtual.';
-  empty.append(icon, title, description);
+  description.textContent = "Escolha a área e comece. O recrutador virtual faz uma pergunta de cada vez.";
+  empty.append(title, description);
   return empty;
 }
 
@@ -1184,7 +1150,7 @@ function resetarEntrevista() {
   historicoChat = [];
   perguntaAtual = 0;
   areaEntrevista = "";
-  ultimaAcaoEntrevista = null;
+  contextoEntrevista = "";
   const chat = el("chat-box");
   if (chat) chat.replaceChildren(criarEmptyStateEntrevista());
   const resposta = el("resposta");
@@ -1194,7 +1160,29 @@ function resetarEntrevista() {
   document.querySelectorAll(".progress-step").forEach(step => step.classList.remove("active", "completed"));
   const area = el("area");
   if (area) area.disabled = false;
-  window.lucide?.createIcons?.();
+}
+
+function treinarParaVaga() {
+  const snapshot = ultimoSnapshotCurriculo;
+  const select = el("area");
+  if (!snapshot || !select) {
+    toastWarning("Nada para treinar", "Gere um currículo primeiro");
+    return;
+  }
+  resetarEntrevista();
+  let opcao = el("area-vaga");
+  if (!opcao) {
+    opcao = document.createElement("option");
+    opcao.id = "area-vaga";
+    select.prepend(opcao);
+  }
+  opcao.value = snapshot.objetivo;
+  opcao.textContent = `Esta vaga: ${snapshot.objetivo}`;
+  opcao.selected = true;
+  contextoVaga = montarContextoVaga(snapshot);
+  ativarAba("entrevista");
+  el("ferramentas")?.scrollIntoView({ block: "start" });
+  return iniciarEntrevista();
 }
 
 function cancelarEntrevista() {
@@ -1206,6 +1194,7 @@ function cancelarEntrevista() {
 ["nome", "contato", "linkedin", "github", "formacao", "experiencia", "habilidades", "objetivo"].forEach(id => {
   el(id)?.addEventListener("input", () => clearFieldError(id));
 });
+el("habilidades")?.addEventListener("input", () => clearFieldError("formacao"));
 
 el("resposta")?.addEventListener("keydown", evento => {
   if (evento.key === "Enter" && !evento.shiftKey && !evento.isComposing) {
@@ -1232,34 +1221,12 @@ document.addEventListener("keydown", evento => {
   }
 });
 
-const botoesAbas = document.querySelectorAll(".tab-btn");
 const botoesHero = document.querySelectorAll(".btn-tab");
-const paineis = document.querySelectorAll(".tab-panel");
 
+// As abas em si ficam com o system.js do kit (role="tab").
 function ativarAba(target) {
-  botoesAbas.forEach(botao => {
-    const ativo = botao.dataset.tab === target;
-    botao.classList.toggle("active", ativo);
-    botao.setAttribute("aria-selected", String(ativo));
-    botao.tabIndex = ativo ? 0 : -1;
-  });
-  paineis.forEach(painel => {
-    const ativo = painel.id === `${target}-panel`;
-    painel.classList.toggle("active", ativo);
-    painel.setAttribute("aria-hidden", String(!ativo));
-  });
+  el(`tab-${target}`)?.click();
 }
-
-botoesAbas.forEach((botao, index) => {
-  botao.addEventListener("click", () => ativarAba(botao.dataset.tab));
-  botao.addEventListener("keydown", evento => {
-    if (!["ArrowLeft", "ArrowRight"].includes(evento.key)) return;
-    evento.preventDefault();
-    const proximo = (index + (evento.key === "ArrowRight" ? 1 : -1) + botoesAbas.length) % botoesAbas.length;
-    botoesAbas[proximo].focus();
-    ativarAba(botoesAbas[proximo].dataset.tab);
-  });
-});
 
 botoesHero.forEach(botao => {
   botao.addEventListener("click", evento => {
@@ -1271,38 +1238,4 @@ botoesHero.forEach(botao => {
   });
 });
 
-const botaoTema = el("toggle-tema");
-const CHAVE_TEMA = "conecta-carreira-tema";
-
-function atualizarIconeTema(ehEscuro) {
-  if (!botaoTema) return;
-  botaoTema.setAttribute("aria-label", ehEscuro ? "Alternar para modo claro" : "Alternar para modo escuro");
-  const icone = botaoTema.querySelector("[data-lucide]") || botaoTema.querySelector("svg");
-  if (icone && window.lucide?.createIcons) {
-    icone.setAttribute("data-lucide", ehEscuro ? "sun" : "moon");
-    window.lucide.createIcons();
-    return;
-  }
-  icone?.remove();
-  botaoTema.textContent = ehEscuro ? "Sol" : "Lua";
-}
-
-atualizarIconeTema(document.documentElement.getAttribute("data-tema") === "escuro");
-botaoTema?.addEventListener("click", () => {
-  const estaEscuro = document.documentElement.getAttribute("data-tema") === "escuro";
-  if (estaEscuro) {
-    document.documentElement.removeAttribute("data-tema");
-  } else {
-    document.documentElement.setAttribute("data-tema", "escuro");
-  }
-  document.documentElement.classList.toggle("dark", !estaEscuro);
-  try { window.localStorage?.setItem(CHAVE_TEMA, estaEscuro ? "claro" : "escuro"); } catch { }
-  atualizarIconeTema(!estaEscuro);
-});
-
-function initLucide() {
-  if (!window.lucide?.createIcons) return;
-  try { window.lucide.createIcons({ strokeWidth: 2 }); } catch { }
-}
 removerStorageLegado();
-initLucide();

@@ -22,18 +22,19 @@ conecta-carreira/
 │   └── js/
 │       ├── api.js
 │       └── app.js
-├── worker/
-│   └── worker.js
 ├── tests/
-│   └── test_app.py
+│   ├── conftest.py
+│   ├── test_app.py
+│   └── test_frontend.mjs
 ├── .env.example
 ├── Dockerfile
 ├── render.yaml
 ├── requirements.txt
+├── requirements-dev.txt
 └── README.md
 ```
 
-O Flask serve somente os quatro assets dentro de `public/`. Backend, testes, configuração e arquivos de infraestrutura não ficam acessíveis pela rota estática.
+O Flask serve somente os arquivos listados em `PUBLIC_FILES` e a pasta `public/assets/`, que guarda a parte usada do kit visual. Backend, testes, configuração e arquivos de infraestrutura não ficam acessíveis pela rota estática.
 
 ## Rodar local
 
@@ -71,20 +72,22 @@ curl -X POST http://localhost:5000/api/gemini \
 ## Testes e segurança
 
 ```bash
-pip install -r requirements.txt
-pytest -q
+pip install -r requirements-dev.txt
+python -m pytest -q
+node --test tests/test_frontend.mjs
 ```
 
 A suíte não chama a API real. Ela cobre health/readiness, validação estrita, limite de corpo, CORS, preflight, rate-limit, streaming, upstream e proteção de arquivos privados.
 
 Proteções atuais:
 
-- allowlist dos quatro assets públicos;
+- allowlist dos arquivos públicos e da pasta `public/assets/`;
 - CORS por allowlist, sem reflexão arbitrária de `Origin`;
 - `ALLOWED_ORIGINS` vazio permite apenas uso same-origin;
 - limite de 64 KiB no corpo e validação estrita do payload;
-- rate-limit atômico em memória, com expiração e limite de chaves;
-- limite global de oito streams para reservar capacidade para health checks;
+- rate-limit atômico em memória, com expiração e limite de chaves; IPv6 conta por rede `/64`;
+- teto diário de chamadas à IA (`MAX_REQUESTS_PER_DAY`, 1000 por padrão), em memória: zera ao reiniciar;
+- limite global de streams (oito por padrão, 30 no Render) menor que o número de threads, para reservar capacidade para health checks;
 - chave enviada ao Gemini pelo header `x-goog-api-key`;
 - `.env*`, `.git`, testes e caches excluídos da imagem Docker;
 - nenhum currículo ou transcript é persistido automaticamente no navegador.
@@ -113,7 +116,7 @@ Use sempre HTTPS. A porta `5500` mantém o fallback local para `http://localhost
 
 ### Render
 
-`render.yaml` usa o runtime Python nativo, Gunicorn `gthread`, um processo, até oito streams simultâneos, porta injetada pela plataforma e `/api/health` como readiness check. Configure `GEMINI_KEY` no painel; não coloque o valor no repositório.
+`render.yaml` usa o runtime Python nativo, Gunicorn `gthread`, um processo, até 30 streams simultâneos, 120 requisições por minuto por IP (uma turma pode sair pelo mesmo IP), porta injetada pela plataforma e `/api/health` como readiness check. Configure `GEMINI_KEY` no painel; não coloque o valor no repositório.
 
 ### Docker
 

@@ -10,6 +10,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
+RUN useradd --system --no-create-home app
+USER app
+
 EXPOSE 5000
 
 CMD ["sh", "-c", "exec gunicorn --bind 0.0.0.0:${PORT:-5000} --worker-class gthread --threads 12 --workers 1 --timeout 150 backend.app:app"]

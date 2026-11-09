@@ -34,6 +34,7 @@ class FakeUpstream:
 def limpar_estado():
     appmod._reqs_por_ip.clear()
     appmod._last_rate_cleanup = 0.0
+    appmod._chamadas_no_dia = 0
     appmod.app.config["TESTING"] = True
     yield
     appmod._reqs_por_ip.clear()
@@ -111,6 +112,7 @@ def test_json_invalido_retorna_400(client, monkeypatch):
     ativar_chave(monkeypatch)
     response = client.post("/api/gemini", data="{", content_type="application/json")
     assert response.status_code == 400
+    assert response.get_json()["erro"]
 
 
 def test_json_nao_objeto_retorna_400(client, monkeypatch):
@@ -163,41 +165,6 @@ def test_numeros_nao_finitos_retornam_400(client, monkeypatch, raw):
     response = client.post("/api/gemini", data=raw, content_type="application/json")
     assert response.status_code == 400
     assert chamadas == []
-
-
-@pytest.mark.parametrize("payload", [
-    {"contents": None},
-    {"contents": []},
-    {"contents": [{"parts": None}]},
-    {"contents": [{"parts": [{}]}]},
-    {"contents": [{"parts": [{"text": "oi"}]}], "generationConfig": None},
-    {"contents": [{"parts": [{"text": "oi"}]}], "generationConfig": []},
-    {"contents": [{"parts": [{"text": "   "}]}]},
-])
-def test_conteudo_gemini_invalido_retorna_400(client, monkeypatch, payload):
-    ativar_chave(monkeypatch)
-    chamadas = mock_post(monkeypatch, FakeUpstream())
-    response = client.post("/api/gemini", json=payload)
-    assert response.status_code == 400
-    assert chamadas == []
-
-
-def test_conteudo_gemini_preserva_todas_as_partes(client, monkeypatch):
-    ativar_chave(monkeypatch)
-    upstream = FakeUpstream(chunks=[evento("pronto")])
-    chamadas = mock_post(monkeypatch, upstream)
-    payload = {
-        "contents": [
-            {"parts": [{"text": "primeiro"}, {"text": "segundo"}]},
-            {"parts": [{"text": "terceiro"}]},
-        ],
-        "generationConfig": {"maxOutputTokens": 77, "temperature": 0.3},
-    }
-    response = client.post("/api/gemini", json=payload)
-    assert response.status_code == 200
-    body = chamadas[0][1]["json"]
-    assert body["contents"][0]["parts"][0]["text"] == "primeiro\nsegundo\nterceiro"
-    assert body["generationConfig"] == {"maxOutputTokens": 77, "temperature": 0.3}
 
 
 def test_chave_via_header_e_modelo_escapado(client, monkeypatch):
@@ -441,10 +408,72 @@ def test_rate_limit_remove_chaves_expiradas(monkeypatch):
     monkeypatch.setattr(appmod, "RATE_MAX", 2)
     monkeypatch.setattr(appmod, "RATE_MAX_KEYS", 100)
     appmod._reqs_por_ip["2001:db8::1"] = deque([momento])
+    appmod._reqs_por_ip["2001:db8::2"] = deque([momento])
     momento = 161.0
     permitido, _retry = appmod.checar_rate_limit("2001:db8::1")
     assert permitido is True
     assert "2001:db8::1" in appmod._reqs_por_ip
+    assert "2001:db8::2" not in appmod._reqs_por_ip
+
+
+def test_rate_limit_descarta_chave_mais_antiga_no_limite(monkeypatch):
+    monkeypatch.setattr(appmod, "RATE_MAX_KEYS", 2)
+    for ip in ["203.0.113.1", "203.0.113.2", "203.0.113.3"]:
+        appmod.checar_rate_limit(ip)
+    assert list(appmod._reqs_por_ip) == ["203.0.113.2", "203.0.113.3"]
+
+
+def test_rate_limit_conta_ipv6_por_rede_64(client, monkeypatch):
+    ativar_chave(monkeypatch)
+    monkeypatch.setattr(appmod, "TRUST_PROXY", True)
+    monkeypatch.setattr(appmod, "CLIENT_IP_HEADER", "cf-connecting-ip")
+    monkeypatch.setattr(appmod, "RATE_MAX", 1)
+    mock_post(monkeypatch, FakeUpstream(chunks=[evento()]))
+
+    def enviar(ip):
+        return client.post("/api/gemini", json={"prompt": "a"}, headers={"CF-Connecting-IP": ip}).status_code
+
+    assert enviar("2001:db8:1:1::1") == 200
+    assert enviar("2001:db8:1:1::2") == 429
+    assert enviar("2001:db8:1:2::1") == 200
+
+
+@pytest.mark.parametrize("entrada,esperado", [
+    ("::ffff:203.0.113.7", "203.0.113.7"),
+    ("203.0.113.7", "203.0.113.7"),
+    ("2001:db8:1:1:aaaa::1", "2001:db8:1:1::/64"),
+    ("invalido", "unknown"),
+])
+def test_canonical_ip(entrada, esperado):
+    assert appmod._canonical_ip(entrada) == esperado
+
+
+def test_teto_diario_bloqueia_sem_chamar_a_ia_e_zera_no_dia_seguinte(client, monkeypatch):
+    ativar_chave(monkeypatch)
+    monkeypatch.setattr(appmod, "MAX_POR_DIA", 1)
+    agora = 1_000_000_000.0
+    monkeypatch.setattr(appmod.time, "time", lambda: agora)
+    chamadas = mock_post(monkeypatch, FakeUpstream(chunks=[evento()]))
+    vagas = appmod._stream_slots._value
+
+    assert client.post("/api/gemini", json={"prompt": "a"}).status_code == 200
+    bloqueada = client.post("/api/gemini", json={"prompt": "b"})
+    assert bloqueada.status_code == 503
+    assert "limite diário" in bloqueada.get_json()["erro"]
+    assert len(chamadas) == 1
+    assert appmod._stream_slots._value == vagas
+
+    agora += 86400
+    assert client.post("/api/gemini", json={"prompt": "c"}).status_code == 200
+    assert len(chamadas) == 2
+
+
+def test_formato_contents_nao_e_mais_aceito(client, monkeypatch):
+    ativar_chave(monkeypatch)
+    chamadas = mock_post(monkeypatch, FakeUpstream())
+    response = client.post("/api/gemini", json={"contents": [{"parts": [{"text": "oi"}]}]})
+    assert response.status_code == 400
+    assert chamadas == []
 
 
 def test_security_headers(client):
@@ -460,6 +489,7 @@ def test_json_profundamente_aninhado_retorna_400(client, monkeypatch):
     raw = b'{"prompt":' + (b"[" * 2000) + b"0" + (b"]" * 2000) + b"}"
     response = client.post("/api/gemini", data=raw, content_type="application/json")
     assert response.status_code == 400
+    assert response.get_json()["erro"]
 
 
 def test_cors_real_depende_da_configuracao_de_importacao():
@@ -523,6 +553,9 @@ print(json.dumps({
     "/css/styles.css",
     "/js/api.js",
     "/js/app.js",
+    "/favicon.svg",
+    "/assets/system.css",
+    "/assets/system.js",
 ])
 def test_assets_publicos_servidos(client, path):
     assert client.get(path).status_code == 200
@@ -540,6 +573,9 @@ def test_assets_publicos_servidos(client, path):
     "/tests/test_app.py",
     "/index.html/../backend/app.py",
     "/js/api.js/extra",
+    "/assets/../../backend/app.py",
+    "/assets/%2e%2e/%2e%2e/.env",
+    "/assets/inexistente.js",
 ])
 def test_arquivos_privados_bloqueados(client, path):
     assert client.get(path).status_code == 404

@@ -26,7 +26,8 @@ log = logging.getLogger("conecta")
 
 VERSAO = "2.0.0"
 INICIO = time.monotonic()
-PUBLIC_FILES = frozenset({"index.html", "css/styles.css", "js/api.js", "js/app.js"})
+PUBLIC_FILES = frozenset({"index.html", "favicon.svg", "share.jpg", "css/styles.css", "js/api.js", "js/app.js"})
+PUBLIC_PREFIX = "assets/"
 MAX_CONTENT_LENGTH = 64 * 1024
 PROMPT_MAX_CHARS = 12000
 
@@ -87,16 +88,19 @@ RATE_MAX = _env_int("RATE_LIMIT_MAX", 20, 1, 10000)
 RATE_JANELA = _env_int("RATE_LIMIT_WINDOW", 60, 1, 86400)
 RATE_MAX_KEYS = _env_int("RATE_LIMIT_MAX_KEYS", 10000, 100, 100000)
 MAX_STREAMS = _env_int("MAX_STREAMS", 8, 1, 128)
+MAX_POR_DIA = _env_int("MAX_REQUESTS_PER_DAY", 1000, 1, 10000000)
 TRUST_PROXY = _env_bool("TRUST_PROXY", False)
 CLIENT_IP_HEADER = os.getenv("CLIENT_IP_HEADER", "").strip().lower()
 if CLIENT_IP_HEADER and not CLIENT_IP_HEADER.replace("-", "").isalnum():
     raise RuntimeError("CLIENT_IP_HEADER deve conter apenas letras e hífens.")
-ORIGINS = _parse_origins(os.getenv("ALLOWED_ORIGINS", os.getenv("ALLOWED_ORIGIN", "")))
+ORIGINS = _parse_origins(os.getenv("ALLOWED_ORIGINS", ""))
 
 _reqs_por_ip: OrderedDict[str, deque[float]] = OrderedDict()
 _rate_lock = threading.Lock()
 _stream_slots = threading.BoundedSemaphore(MAX_STREAMS)
 _last_rate_cleanup = 0.0
+_dia_atual = 0
+_chamadas_no_dia = 0
 
 app = Flask(__name__, static_folder=None)
 app.config["MAX_CONTENT_LENGTH"] = MAX_CONTENT_LENGTH
@@ -114,9 +118,15 @@ def _canonical_ip(value: str | None) -> str:
     if not value:
         return "unknown"
     try:
-        return str(ipaddress.ip_address(value.strip()))
+        ip = ipaddress.ip_address(value.strip())
     except ValueError:
         return "unknown"
+    if ip.version == 6:
+        if ip.ipv4_mapped:
+            return str(ip.ipv4_mapped)
+        # Uma única conexão IPv6 costuma ter uma rede /64 inteira: contar por endereço não limitaria nada.
+        return str(ipaddress.ip_network(f"{ip}/64", strict=False))
+    return str(ip)
 
 
 def ip_cliente() -> str:
@@ -156,6 +166,20 @@ def checar_rate_limit(ip: str) -> tuple[bool, int]:
         return True, 0
 
 
+def consumir_cota_diaria() -> bool:
+    # shortcut: o contador fica em memória e zera ao reiniciar; com várias instâncias, usar armazenamento compartilhado.
+    global _dia_atual, _chamadas_no_dia
+    dia = int(time.time() // 86400)
+    with _rate_lock:
+        if dia != _dia_atual:
+            _dia_atual = dia
+            _chamadas_no_dia = 0
+        if _chamadas_no_dia >= MAX_POR_DIA:
+            return False
+        _chamadas_no_dia += 1
+        return True
+
+
 def _erro_validacao(campo: str, esperado: str) -> tuple[str, int, float, str]:
     return "", 0, 0.0, f"Campo '{campo}' inválido ({esperado})."
 
@@ -184,33 +208,6 @@ def validar_entrada(dados: dict) -> tuple[str, int, float, str]:
         return "", 0, 0.0, "temperature fora do intervalo permitido (0 a 1)."
 
     return prompt, max_tokens, temperature, ""
-
-
-def _contents_to_payload(dados: dict) -> dict:
-    contents = dados.get("contents")
-    if not isinstance(contents, list):
-        raise TypeError("'contents' deve ser uma lista.")
-    if not contents:
-        raise ValueError("'contents' deve ser uma lista não vazia.")
-    textos: list[str] = []
-    for content in contents:
-        if not isinstance(content, dict) or not isinstance(content.get("parts"), list):
-            raise TypeError("Cada item de 'contents' deve conter uma lista 'parts'.")
-        for part in content["parts"]:
-            if not isinstance(part, dict) or not isinstance(part.get("text"), str):
-                raise TypeError("Cada parte de 'contents' deve conter texto.")
-            textos.append(part["text"])
-    if not any(texto.strip() for texto in textos):
-        raise ValueError("'contents' não contém texto válido.")
-
-    generation_config = dados.get("generationConfig", {})
-    if generation_config is None or not isinstance(generation_config, dict):
-        raise ValueError("'generationConfig' deve ser um objeto.")
-    return {
-        "prompt": "\n".join(textos),
-        "maxTokens": generation_config.get("maxOutputTokens", 1024),
-        "temperature": generation_config.get("temperature", 0.7),
-    }
 
 
 def erro_amigavel(status: int) -> str:
@@ -288,7 +285,8 @@ def index():
 
 @app.get("/<path:filename>")
 def static_files(filename):
-    if filename not in PUBLIC_FILES or "\\" in filename:
+    publico = filename in PUBLIC_FILES or filename.startswith(PUBLIC_PREFIX)
+    if not publico or "\\" in filename:
         return jsonify({"erro": "Não encontrado"}), 404
     return send_from_directory(PUBLIC_DIR, filename)
 
@@ -330,17 +328,11 @@ def gemini():
         return jsonify({"erro": "Envie Content-Type: application/json."}), 415
 
     try:
-        dados = request.get_json()
-    except (ValueError, TypeError, RecursionError):
-        return jsonify({"erro": "Corpo JSON inválido."}), 400
+        dados = request.get_json(silent=True)
+    except RecursionError:
+        dados = None
     if not isinstance(dados, dict):
         return jsonify({"erro": "Envie um objeto JSON válido."}), 400
-
-    if "prompt" not in dados and "contents" in dados:
-        try:
-            dados = _contents_to_payload(dados)
-        except (TypeError, ValueError) as error:
-            return jsonify({"erro": f"Formato Gemini inválido: {error}"}), 400
 
     prompt, max_tokens, temperature, erro = validar_entrada(dados)
     if erro:
@@ -364,6 +356,11 @@ def gemini():
         if not slot_released:
             _stream_slots.release()
             slot_released = True
+
+    if not consumir_cota_diaria():
+        liberar_stream()
+        log.warning("Teto diário de chamadas atingido (%d)", MAX_POR_DIA)
+        return jsonify({"erro": "O limite diário de uso foi atingido. Tente novamente amanhã."}), 503
 
     corpo_gemini = {
         "contents": [{"parts": [{"text": prompt}]}],

@@ -86,22 +86,17 @@ function criarErroApi(mensagem, status = 0, opcoes = {}) {
   return erro;
 }
 
+// O backend já envia mensagens próprias; aqui só entram os casos em que falta uma mensagem útil.
 function traduzirErro(msg, status) {
-  const m = String(msg || "").toLowerCase();
+  const codigo = Number(status) || 0;
+  if (codigo === 429) return "Muita gente usando agora. Aguarde 1 minuto e clique em Tentar novamente.";
+  if (codigo === 504) return "A IA demorou demais para responder. Clique em Tentar novamente.";
   const semConexao = typeof navigator !== "undefined" && navigator.onLine === false;
-  if (status === 429 || m.includes("muitas requisições") || m.includes("quota") || m.includes("rate")) {
-    return "Muita gente usando agora. Aguarde 1 minuto e clique em Tentar novamente.";
+  // Texto que cada navegador usa quando o fetch nem chega ao servidor.
+  if (!codigo && (semConexao || /failed to fetch|networkerror|load failed/i.test(String(msg)))) {
+    return "Sem conexão com o servidor. Verifique sua internet e tente de novo.";
   }
-  if (semConexao || m.includes("failed to fetch") || m.includes("network") || m.includes("conexão")) {
-    return "Sem conexão com o servidor. Verifique sua internet e se o backend está rodando.";
-  }
-  if (m.includes("chave") || status === 401 || status === 403) {
-    return "Serviço de IA temporariamente indisponível (chave inválida no servidor). Avise o responsável.";
-  }
-  if (m.includes("demorou demais") || status === 504) {
-    return "A IA demorou demais para responder. Clique em Tentar novamente.";
-  }
-  return String(msg || `Erro HTTP ${status || "desconhecido"}`);
+  return String(msg || `Erro HTTP ${codigo || "desconhecido"}`);
 }
 
 async function extrairErroApi(resposta) {
@@ -173,10 +168,7 @@ function verificarStatusResposta(dado) {
     return null;
   }
   const motivo = String(candidato.finishReason || "").toUpperCase();
-  if (motivo && motivo !== "STOP") {
-    if (motivo === "MAX_TOKENS") {
-      return criarErroProtocolo("A resposta foi cortada pelo limite de tokens. Tente reduzir o pedido.");
-    }
+  if (motivo && motivo !== "STOP" && motivo !== "MAX_TOKENS") {
     return criarErroProtocolo(`Resposta interrompida: ${motivo}`);
   }
   return null;
@@ -193,8 +185,9 @@ function extrairTextoResposta(dado) {
 function extrairMensagemErroSSE(dado) {
   const valor = dado?.error ?? dado?.erro;
   if (!valor) return null;
-  const mensagem = typeof valor === "string" ? valor : valor.message || "Erro retornado pela IA";
-  const status = Number(valor.status || valor.statusCode || dado.status || 0);
+  // Erro em objeto vem direto do Google, em inglês; texto vem do nosso backend.
+  const mensagem = typeof valor === "string" ? valor : "A IA está instável agora. Aguarde alguns segundos e tente novamente.";
+  const status = Number(valor.code || dado.status || 0);
   return criarErroApi(traduzirErro(mensagem, status), Number.isFinite(status) ? status : 0);
 }
 
@@ -217,7 +210,8 @@ function despacharEventoSSE(estado, consumir) {
   const erro = extrairMensagemErroSSE(dado);
   if (erro) throw erro;
   const finishReason = String(dado?.candidates?.[0]?.finishReason || "").toUpperCase();
-  if (finishReason === "STOP") estado.terminal = true;
+  if (finishReason === "STOP" || finishReason === "MAX_TOKENS") estado.terminal = true;
+  if (finishReason === "MAX_TOKENS") estado.cortada = true;
   const status = verificarStatusResposta(dado);
   if (status) throw status;
   const trecho = extrairTextoResposta(dado);
@@ -369,6 +363,7 @@ async function chamarGemini(prompt, aoReceberTrecho, opcoes = {}) {
       if (!textoCompleto.trim()) {
         throw criarErroProtocolo("A IA retornou uma resposta vazia. Tente novamente.");
       }
+      if (estado.cortada) opcoes.aoCortar?.();
       return textoCompleto;
     } catch (erro) {
       if (sinalExterno?.aborted) throw criarErroCancelamento();

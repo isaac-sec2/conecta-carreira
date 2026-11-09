@@ -1,4 +1,8 @@
 .env*
+.agents/
+.taste-skill/
+skills-lock.json
+shots/
 .git/
 .gitignore
 .venv/
@@ -11,4 +15,4 @@ tests/
 Dockerfile
 .dockerignore
 render.yaml
-worker/
+requirements-dev.txt
