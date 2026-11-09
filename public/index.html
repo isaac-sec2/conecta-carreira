@@ -156,6 +156,14 @@
                 <input type="text" id="estado" autocomplete="address-level1" maxlength="40"></div>
               <div class="field field--full"><label for="idioma">Idioma e nível</label>
                 <input type="text" id="idioma" placeholder="Inglês intermediário" maxlength="120"></div>
+              <div class="field field--full"><label for="foto">Foto 3x4</label>
+                <input type="file" id="foto" accept="image/jpeg,image/png,image/webp" aria-invalid="false" aria-describedby="foto-ajuda">
+                <p class="foto-ajuda" id="foto-ajuda">Opcional. A foto fica só no seu navegador: não vai para a IA nem para este site.</p>
+                <p class="field__error" role="alert" id="err-foto" hidden></p>
+                <div class="foto-previa" id="foto-previa" hidden>
+                  <img id="foto-previa-img" alt="Prévia da sua foto">
+                  <button class="btn btn--secondary" id="btn-remover-foto" type="button" onclick="removerFoto()">Remover foto</button>
+                </div></div>
             </div>
           </div>
           <div class="janela__pe">

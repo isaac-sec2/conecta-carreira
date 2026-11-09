@@ -159,6 +159,45 @@ test("formulário exige contato válido e formação ou habilidades", () => {
   assert.equal(validar("maria@email.com", ""), false);
 });
 
+test("recorte 3x4 fica dentro da foto, centrado na largura e mais perto do topo", () => {
+  const { recorte3x4 } = carregarFrontend();
+  const proporcao = r => r.largura / r.altura;
+
+  const deitada = recorte3x4(1600, 900);
+  assert.equal(deitada.altura, 900);
+  assert.equal(deitada.y, 0);
+  assert.equal(deitada.x, (1600 - 675) / 2);
+  assert.ok(Math.abs(proporcao(deitada) - 0.75) < 1e-9);
+
+  const alta = recorte3x4(600, 1600);
+  assert.equal(alta.largura, 600);
+  assert.equal(alta.x, 0);
+  assert.equal(alta.y, (1600 - 800) / 4);
+  assert.ok(Math.abs(proporcao(alta) - 0.75) < 1e-9);
+
+  assert.deepEqual({ ...recorte3x4(300, 400) }, { x: 0, y: 0, largura: 300, altura: 400 });
+});
+
+test("quebra de linhas do PDF respeita a largura e mantém o negrito", () => {
+  const { quebrarLinhas } = carregarFrontend();
+  const medir = texto => texto.length;
+  const linhas = quebrarLinhas([{ texto: "Técnicas:", negrito: true }, { texto: " Excel básico e Word", negrito: false }], 15, medir);
+  const texto = JSON.parse(JSON.stringify(linhas.map(linha => linha.map(t => t.texto).join(""))));
+  assert.deepEqual(texto, ["Técnicas: Excel", "básico e Word"]);
+  assert.deepEqual(JSON.parse(JSON.stringify(linhas[0].map(t => t.negrito))), [true, false]);
+  assert.ok(texto.every(t => t.length <= 15 && t === t.trim()));
+  assert.equal(quebrarLinhas([{ texto: "   ", negrito: false }], 10, medir).length, 0);
+});
+
+test("habilidades viram rótulo e etiquetas", () => {
+  const { dividirHabilidade } = carregarFrontend();
+  const plain = valor => JSON.parse(JSON.stringify(valor));
+  assert.deepEqual(plain(dividirHabilidade("Técnicas: Excel básico, Word; Google Planilhas.")), { rotulo: "Técnicas", itens: ["Excel básico", "Word", "Google Planilhas"] });
+  assert.deepEqual(plain(dividirHabilidade("Inglês: intermediário")), { rotulo: "", itens: ["Inglês: intermediário"] });
+  assert.deepEqual(plain(dividirHabilidade("Comunicação")), { rotulo: "", itens: ["Comunicação"] });
+  assert.deepEqual(plain(dividirHabilidade("")), { rotulo: "", itens: [] });
+});
+
 test("bloqueio de segurança continua sendo erro", async () => {
   const contexto = carregarFrontend();
   contexto.fetch = async () => respostaSSE([evento("x", "SAFETY")]);
