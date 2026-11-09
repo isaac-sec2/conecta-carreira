@@ -550,40 +550,86 @@ function renderCurriculoMarkdown(texto, caixa, dados) {
   const nome = document.createElement("h2");
   nome.textContent = dados.nome;
   header.appendChild(nome);
-  if (dados.contato) {
-    const contato = document.createElement("p");
-    contato.textContent = dados.contato;
-    header.appendChild(contato);
-  }
+  // Mesma ordem do PDF: nome, vaga e, numa linha, os contatos.
   if (dados.objetivo) {
     const objetivo = document.createElement("p");
-    const strong = document.createElement("strong");
-    strong.textContent = `Objetivo: ${dados.objetivo}`;
-    objetivo.appendChild(strong);
+    objetivo.className = "cv-objetivo";
+    objetivo.textContent = dados.objetivo;
     header.appendChild(objetivo);
+  }
+  if (dados.contato) {
+    const contato = document.createElement("p");
+    contato.className = "cv-contato";
+    contato.textContent = dados.contato;
+    header.appendChild(contato);
   }
   const localizacao = [dados.cidade, dados.estado].filter(Boolean).join(" - ");
   if (localizacao) {
     const local = document.createElement("p");
+    local.className = "cv-local";
     local.textContent = localizacao;
     header.appendChild(local);
   }
   [ [linkedin, "LinkedIn"], [github, "GitHub"] ].forEach(([url, label]) => {
     if (!url) return;
     const paragraph = document.createElement("p");
+    paragraph.className = "cv-link";
     const link = document.createElement("a");
     link.href = url;
     link.target = "_blank";
     link.rel = "noopener noreferrer";
-    link.textContent = `${label}: ${url}`;
+    link.textContent = url.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, "");
+    link.setAttribute("aria-label", `${label}: ${link.textContent}`);
     paragraph.appendChild(link);
     header.appendChild(paragraph);
   });
   const markdown = document.createElement("div");
   markdown.className = "curriculo-markdown";
   markdown.innerHTML = markdownParaHtml(texto);
+  marcarComoNoPdf(markdown);
   caixa.replaceChildren(header, markdown);
   atualizarFotoNoCurriculo();
+}
+
+// A mesma regra decide etiquetas na prévia e no PDF.
+function listaEmEtiquetas(secao, lista) {
+  return /habilidad|compet|idioma/i.test(secao)
+    && [...lista.children].every(item => dividirHabilidade(item.textContent).itens.every(t => t.length <= 50));
+}
+
+// Marca o resumo e transforma habilidades em etiquetas, sem mudar o texto: PDF e cópia leem "Técnicas: Excel, Word".
+function marcarComoNoPdf(markdown) {
+  let secao = "";
+  [...markdown.children].forEach(no => {
+    if (["H1", "H2"].includes(no.tagName)) secao = no.textContent.trim();
+    else if (no.tagName === "P" && /resumo|perfil/i.test(secao)) no.classList.add("cv-resumo");
+    else if (["UL", "OL"].includes(no.tagName) && listaEmEtiquetas(secao, no)) {
+      no.classList.add("cv-etiquetas");
+      [...no.children].forEach(item => {
+        const { rotulo, itens } = dividirHabilidade(item.textContent);
+        const partes = [];
+        if (rotulo) {
+          const titulo = document.createElement("strong");
+          titulo.textContent = `${rotulo}: `;
+          partes.push(titulo);
+          item.classList.add("cv-etiquetas__grupo");
+        }
+        itens.forEach((texto, i) => {
+          if (i) {
+            const separador = document.createElement("span");
+            separador.className = "cv-etiquetas__sep";
+            separador.textContent = ", ";
+            partes.push(separador);
+          }
+          const etiqueta = document.createElement("span");
+          etiqueta.className = "cv-etiqueta";
+          etiqueta.textContent = texto;
+          partes.push(etiqueta);
+        });
+        item.replaceChildren(...partes);
+      });
+    }
+  });
 }
 
 const FOTO_FORMATOS = ["image/jpeg", "image/png", "image/webp"];
@@ -671,9 +717,16 @@ async function copiarTextoFallback(texto) {
   if (!copied) throw new Error("Não foi possível copiar o texto.");
 }
 
+// Texto da folha sem o visual de etiquetas: "Técnicas: Excel, Word" numa linha, como no currículo gerado.
+function textoDaFolha(caixa) {
+  if (!caixa) return "";
+  caixa.classList.add("cv-texto");
+  try { return caixa.innerText.trim(); } finally { caixa.classList.remove("cv-texto"); }
+}
+
 async function copiarCurriculo() {
   const caixa = el("resultado-curriculo");
-  const texto = caixa?.innerText?.trim() || "";
+  const texto = textoDaFolha(caixa);
   if (!texto || !ultimoMarkdownCurriculo.trim()) {
     toastWarning("Nada para copiar", "Gere um currículo primeiro");
     return;
@@ -700,13 +753,57 @@ function restaurarBotaoPdf(botao, textoOriginal) {
   botao.disabled = false;
 }
 
-function textoItemPdf(item) {
-  if (item.tagName === "TR") return [...item.cells].map(celula => celula.textContent.trim()).join(" | ");
-  if (item.tagName !== "LI") return item.textContent;
-  // Sublistas têm seus próprios <li>; sem removê-las aqui, o texto sairia duas vezes.
-  const copia = item.cloneNode(true);
-  copia.querySelectorAll("ul, ol").forEach(lista => lista.remove());
-  return `• ${copia.textContent}`;
+// Azul-marinho e verde-petróleo: sóbrios para o RH e ainda legíveis impressos em preto e branco.
+const PDF_COR = Object.freeze({
+  faixa: [27, 42, 65], destaque: [14, 124, 107], destaqueClaro: [125, 211, 192],
+  etiquetaFundo: [227, 242, 239], etiquetaTexto: [11, 93, 81],
+  texto: [38, 38, 38], suave: [107, 114, 128], claro: [214, 222, 232], linha: [226, 232, 240]
+});
+
+// Trechos de texto com o negrito marcado; sublistas ficam de fora porque têm seus próprios itens.
+function runsDoNo(no, negrito = false, runs = []) {
+  no.childNodes.forEach(filho => {
+    if (filho.nodeType === Node.TEXT_NODE) runs.push({ texto: filho.textContent, negrito });
+    else if (filho.nodeType === Node.ELEMENT_NODE && !["UL", "OL"].includes(filho.tagName)) {
+      runsDoNo(filho, negrito || ["STRONG", "B"].includes(filho.tagName), runs);
+      if (["P", "BR"].includes(filho.tagName)) runs.push({ texto: " ", negrito });
+    }
+  });
+  return runs;
+}
+
+// Quebra trechos com negrito em linhas que cabem na largura; medir(texto, negrito) devolve a largura.
+function quebrarLinhas(runs, largura, medir) {
+  const linhas = [[]];
+  let usado = 0;
+  runs.forEach(({ texto, negrito }) => {
+    String(texto).replace(/\s+/g, " ").split(/(?<= )/).forEach(palavra => {
+      let linha = linhas[linhas.length - 1];
+      if (linha.length && usado + medir(palavra.trimEnd(), negrito) > largura) {
+        linhas.push(linha = []);
+        usado = 0;
+      }
+      if (!linha.length && !palavra.trim()) return;
+      const ultimo = linha[linha.length - 1];
+      if (ultimo?.negrito === negrito) ultimo.texto += palavra;
+      else linha.push({ texto: palavra, negrito });
+      usado += medir(palavra, negrito);
+    });
+  });
+  return linhas.filter(linha => linha.length).map(linha => {
+    linha[linha.length - 1].texto = linha[linha.length - 1].texto.trimEnd();
+    return linha;
+  });
+}
+
+// "Técnicas: Excel, Word" vira { rotulo: "Técnicas", itens: ["Excel", "Word"] } para as etiquetas do PDF.
+function dividirHabilidade(texto) {
+  const limpo = String(texto || "").replace(/\s+/g, " ").trim();
+  const partes = limpo.match(/^([^:,]{2,40}):\s*(.*)$/);
+  const itens = (partes ? partes[2] : limpo).split(/[,;]/).map(item => item.trim().replace(/\.$/, "")).filter(Boolean);
+  // "Inglês: intermediário" fica numa etiqueta só, em vez de um rótulo com um item.
+  if (!partes || itens.length < 2) return { rotulo: "", itens: limpo ? [limpo.replace(/\.$/, "")] : [] };
+  return { rotulo: partes[1].trim(), itens };
 }
 
 function baixarPDF() {
@@ -725,33 +822,188 @@ function baixarPDF() {
   try {
     if (!window.jspdf?.jsPDF) throw new Error("Gerador de PDF indisponível. Recarregue a página e tente novamente.");
     const doc = new window.jspdf.jsPDF({ unit: "mm", format: "a4", orientation: "portrait" });
-    const margem = 18;
-    const larguraTexto = 174;
-    const alturaLinha = 6;
-    let y = 20;
-    // A foto vem da página, não da variável: quem a apagou no modo de edição não a vê no PDF.
+    const M = 18, W = 174, PAGINA = 210, LIMITE = 278;
+    const cor = (rgb, alvo = "texto") => alvo === "texto" ? doc.setTextColor(...rgb) : alvo === "fundo" ? doc.setFillColor(...rgb) : doc.setDrawColor(...rgb);
+    const fonte = (tamanho, negrito = false) => { doc.setFont("helvetica", negrito ? "bold" : "normal"); doc.setFontSize(tamanho); };
+    const medidor = tamanho => (texto, negrito) => { fonte(tamanho, negrito); return doc.getTextWidth(texto); };
+    const passo = tamanho => tamanho * 0.52; // altura da linha em mm para a fonte em pt
+    // Tudo vem da folha na tela, não do formulário: o que a pessoa editou é o que sai no PDF.
+    const cabecalho = elemento.querySelector(".curriculo-header");
+    const ler = seletor => cabecalho?.querySelector(seletor)?.textContent.replace(/\s+/g, " ").trim() || "";
+    const nomeCv = ler("h2") || nome;
+    doc.setProperties({ title: `Currículo - ${nomeCv}`, author: nomeCv, creator: "Conecta Carreira" });
+
+    // Cabeçalho: nome, vaga e contatos numa faixa escura, com a foto à direita.
     const foto = elemento.querySelector(".curriculo-foto")?.src;
-    if (foto) doc.addImage(foto, "JPEG", 162, 14, 30, 40);
-    let fimDaFotoY = foto ? 58 : 0; // até aqui o texto fica mais estreito para não passar por cima dela
-    const escrever = (texto, tamanho = 10, negrito = false, espacamento = 0) => {
-      const conteudo = String(texto || "").replace(/\s+/g, " ").trim();
-      if (!conteudo) return;
-      doc.setFont("helvetica", negrito ? "bold" : "normal");
-      doc.setFontSize(tamanho);
-      const linhas = doc.splitTextToSize(conteudo, y < fimDaFotoY ? 140 : larguraTexto);
-      if (y + linhas.length * alturaLinha > 278) {
-        doc.addPage();
-        y = 20;
-        fimDaFotoY = 0;
-      }
-      doc.text(linhas, margem, y);
-      y += linhas.length * alturaLinha + espacamento;
-    };
-    elemento.querySelectorAll(".curriculo-header h2, .curriculo-header p, .curriculo-markdown :is(h1, h2, h3, h4, li, tr), .curriculo-markdown p:not(li p)").forEach(item => {
-      const tag = item.tagName.toLowerCase();
-      const titulo = ["h1", "h2", "h3", "h4"].includes(tag);
-      escrever(textoItemPdf(item), titulo ? (tag === "h1" || tag === "h2" ? 18 : 12) : 10, titulo, titulo ? 2 : 1);
+    const larguraCab = foto ? W - 38 : W;
+    const contatos = [
+      ...ler(".cv-contato").split("|").map(t => t.trim()).filter(Boolean)
+        .map(t => ({ texto: t, url: /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(t) ? `mailto:${t}` : "" })),
+      ...(ler(".cv-local") ? [{ texto: ler(".cv-local"), url: "" }] : []),
+      ...[...(cabecalho?.querySelectorAll(".cv-link a") || [])]
+        .map(a => ({ texto: a.href.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, ""), url: a.href }))
+    ];
+    const separador = "   ·   ";
+    fonte(9);
+    const linhasContato = [[]];
+    let usadoContato = 0;
+    contatos.forEach(item => {
+      const largura = doc.getTextWidth(item.texto);
+      const espaco = linhasContato[linhasContato.length - 1].length ? doc.getTextWidth(separador) : 0;
+      if (espaco && usadoContato + espaco + largura > larguraCab) { linhasContato.push([]); usadoContato = largura; }
+      else usadoContato += espaco + largura;
+      linhasContato[linhasContato.length - 1].push(item);
     });
+    fonte(24, true);
+    const linhasNome = doc.splitTextToSize(nomeCv, larguraCab);
+    const objetivo = ler(".cv-objetivo");
+    fonte(11.5);
+    const linhasObjetivo = objetivo ? doc.splitTextToSize(objetivo, larguraCab) : [];
+    let y = 17 + (linhasNome.length - 1) * 10;
+    const yObjetivo = y + 7.5;
+    if (linhasObjetivo.length) y = yObjetivo + (linhasObjetivo.length - 1) * 6;
+    const yContato = y + 7.5;
+    if (contatos.length) y = yContato + (linhasContato.length - 1) * 5;
+    const alturaFaixa = Math.max(y + 9, foto ? 56 : 0);
+
+    cor(PDF_COR.faixa, "fundo");
+    doc.rect(0, 0, PAGINA, alturaFaixa, "F");
+    cor(PDF_COR.destaque, "fundo");
+    doc.rect(0, alturaFaixa, PAGINA, 1.2, "F");
+    fonte(24, true);
+    cor([255, 255, 255]);
+    doc.text(linhasNome, M, 17, { lineHeightFactor: 1.2 });
+    fonte(11.5);
+    cor(PDF_COR.destaqueClaro);
+    if (linhasObjetivo.length) doc.text(linhasObjetivo, M, yObjetivo, { lineHeightFactor: 1.45 });
+    fonte(9);
+    linhasContato.forEach((linha, i) => {
+      let x = M;
+      linha.forEach((item, j) => {
+        if (j) { cor(PDF_COR.destaqueClaro); doc.text(separador, x, yContato + i * 5); x += doc.getTextWidth(separador); }
+        cor(PDF_COR.claro);
+        if (item.url) doc.textWithLink(item.texto, x, yContato + i * 5, { url: item.url });
+        else doc.text(item.texto, x, yContato + i * 5);
+        x += doc.getTextWidth(item.texto);
+      });
+    });
+    if (foto) {
+      cor([255, 255, 255], "fundo");
+      doc.rect(PAGINA - M - 31, 7, 32, 42, "F");
+      doc.addImage(foto, "JPEG", PAGINA - M - 30, 8, 30, 40);
+    }
+
+    // Corpo: cada seção com título marcado, listas com marcador e habilidades em etiquetas.
+    y = alturaFaixa + 13;
+    const garantir = altura => { if (y + altura > LIMITE) { doc.addPage(); y = 24; } };
+    const escreverTrechos = (runs, x, largura, tamanho, rgb) => {
+      quebrarLinhas(runs, largura, medidor(tamanho)).forEach(linha => {
+        garantir(passo(tamanho));
+        let cx = x;
+        linha.forEach(trecho => {
+          fonte(tamanho, trecho.negrito);
+          cor(rgb);
+          doc.text(trecho.texto, cx, y);
+          cx += doc.getTextWidth(trecho.texto);
+        });
+        y += passo(tamanho);
+      });
+    };
+    let primeiroTitulo = true;
+    const titulo = texto => {
+      if (!primeiroTitulo) y += 3;
+      primeiroTitulo = false;
+      garantir(20);
+      fonte(11, true);
+      cor(PDF_COR.destaque);
+      // Sem espaço extra entre letras: sistemas que leem currículos leriam "R E S U M O".
+      doc.text(texto.toUpperCase(), M, y);
+      cor(PDF_COR.linha, "linha");
+      doc.setLineWidth(0.3);
+      doc.line(M, y + 2.2, M + W, y + 2.2);
+      y += 8.5;
+    };
+    const desenharLista = (lista, nivel = 0) => {
+      [...lista.children].forEach((item, i) => {
+        const x = M + nivel * 5;
+        garantir(passo(10) + 1);
+        cor(PDF_COR.destaque, "fundo");
+        cor(PDF_COR.destaque);
+        if (lista.tagName === "OL") { fonte(10, true); doc.text(`${i + 1}.`, x, y); }
+        else doc.circle(x + 1.2, y - 1.2, nivel ? 0.5 : 0.7, "F");
+        escreverTrechos(runsDoNo(item), x + 5, W - nivel * 5 - 5, 10, PDF_COR.texto);
+        y += 1.2;
+        item.querySelectorAll(":scope > ul, :scope > ol").forEach(sub => desenharLista(sub, nivel + 1));
+      });
+      y += 1.5;
+    };
+    const desenharEtiquetas = lista => {
+      const grupos = [];
+      [...lista.children].forEach(item => {
+        const { rotulo, itens } = dividirHabilidade(item.textContent);
+        const anterior = grupos[grupos.length - 1];
+        if (!rotulo && anterior && !anterior.rotulo) anterior.itens.push(...itens);
+        else grupos.push({ rotulo, itens });
+      });
+      grupos.forEach(({ rotulo, itens }) => {
+        if (rotulo) { garantir(13); fonte(9.5, true); cor(PDF_COR.texto); doc.text(rotulo, M, y); y += 5.5; }
+        garantir(8);
+        let x = M;
+        itens.forEach(item => {
+          fonte(9);
+          const largura = doc.getTextWidth(item) + 6;
+          if (x > M && x + largura > M + W) { x = M; y += 8; garantir(8); }
+          cor(PDF_COR.etiquetaFundo, "fundo");
+          doc.roundedRect(x, y - 4.4, largura, 6.4, 3.2, 3.2, "F");
+          cor(PDF_COR.etiquetaTexto);
+          doc.text(item, x + 3, y);
+          x += largura + 2.5;
+        });
+        y += 9.5;
+      });
+    };
+
+    let secao = "";
+    for (const no of elemento.querySelector(".curriculo-markdown")?.children || []) {
+      const tag = no.tagName;
+      if (["H1", "H2"].includes(tag)) {
+        secao = no.textContent.trim();
+        titulo(secao);
+      } else if (/^H[3-6]$/.test(tag)) {
+        garantir(14);
+        escreverTrechos([{ texto: no.textContent, negrito: true }], M, W, 10.5, PDF_COR.faixa);
+        y += 0.8;
+      } else if (["UL", "OL"].includes(tag)) {
+        if (listaEmEtiquetas(secao, no)) desenharEtiquetas(no);
+        else desenharLista(no);
+      } else if (tag === "TABLE") {
+        [...no.rows].forEach((linha, i) => escreverTrechos([{ texto: [...linha.cells].map(c => c.textContent.trim()).join("   |   "), negrito: i === 0 }], M, W, 10, PDF_COR.texto));
+        y += 2.5;
+      } else if (no.textContent.trim()) {
+        const resumo = tag === "P" && /resumo|perfil/i.test(secao);
+        const inicio = y, pagina = doc.getNumberOfPages();
+        const tamanho = resumo ? 10.5 : 10;
+        escreverTrechos(runsDoNo(no), resumo ? M + 4 : M, resumo ? W - 4 : W, tamanho, tag === "BLOCKQUOTE" ? PDF_COR.suave : PDF_COR.texto);
+        if (resumo && doc.getNumberOfPages() === pagina) {
+          cor(PDF_COR.destaque, "fundo");
+          doc.rect(M, inicio - 3.8, 0.9, y - passo(tamanho) - inicio + 5, "F");
+        }
+        y += 2.5;
+      }
+    }
+
+    const total = doc.getNumberOfPages();
+    for (let pagina = 1; pagina <= total; pagina++) {
+      doc.setPage(pagina);
+      if (pagina > 1) { cor(PDF_COR.destaque, "fundo"); doc.rect(0, 0, PAGINA, 3, "F"); }
+      cor(PDF_COR.linha, "linha");
+      doc.setLineWidth(0.3);
+      doc.line(M, 286, M + W, 286);
+      fonte(8);
+      cor(PDF_COR.suave);
+      doc.text(nomeCv, M, 291);
+      doc.text(`Página ${pagina} de ${total}`, M + W, 291, { align: "right" });
+    }
     doc.save(`${nome.replace(/\s+/g, "_")}_curriculo.pdf`);
     restaurarBotaoPdf(botao, textoOriginal);
     toastSuccess("PDF gerado!", "Currículo salvo como PDF");
@@ -799,7 +1051,7 @@ function alternarEdicaoCurriculo() {
 }
 
 function baixarTXT() {
-  const texto = el("resultado-curriculo")?.innerText?.trim() || "";
+  const texto = textoDaFolha(el("resultado-curriculo"));
   if (!texto || !ultimoMarkdownCurriculo.trim()) {
     toastWarning("Nada para baixar", "Gere o currículo primeiro");
     return;
