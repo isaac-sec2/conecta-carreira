@@ -1292,6 +1292,14 @@ footer a:hover {
 }
 .erro-box p { color: var(--muted-foreground); margin: 6px 0 12px; }
 
+.orientacao-curriculo { display: block; border-style: dashed; }
+
+.aviso-privacidade {
+  color: var(--muted-foreground);
+  font-size: 0.8rem;
+  margin: 12px 0;
+}
+
 .btn-tentar {
   background: var(--destructive);
   color: var(--destructive-foreground);

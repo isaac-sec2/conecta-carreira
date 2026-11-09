@@ -173,10 +173,7 @@ function verificarStatusResposta(dado) {
     return null;
   }
   const motivo = String(candidato.finishReason || "").toUpperCase();
-  if (motivo && motivo !== "STOP") {
-    if (motivo === "MAX_TOKENS") {
-      return criarErroProtocolo("A resposta foi cortada pelo limite de tokens. Tente reduzir o pedido.");
-    }
+  if (motivo && motivo !== "STOP" && motivo !== "MAX_TOKENS") {
     return criarErroProtocolo(`Resposta interrompida: ${motivo}`);
   }
   return null;
@@ -217,7 +214,8 @@ function despacharEventoSSE(estado, consumir) {
   const erro = extrairMensagemErroSSE(dado);
   if (erro) throw erro;
   const finishReason = String(dado?.candidates?.[0]?.finishReason || "").toUpperCase();
-  if (finishReason === "STOP") estado.terminal = true;
+  if (finishReason === "STOP" || finishReason === "MAX_TOKENS") estado.terminal = true;
+  if (finishReason === "MAX_TOKENS") estado.cortada = true;
   const status = verificarStatusResposta(dado);
   if (status) throw status;
   const trecho = extrairTextoResposta(dado);
@@ -369,6 +367,7 @@ async function chamarGemini(prompt, aoReceberTrecho, opcoes = {}) {
       if (!textoCompleto.trim()) {
         throw criarErroProtocolo("A IA retornou uma resposta vazia. Tente novamente.");
       }
+      if (estado.cortada) opcoes.aoCortar?.();
       return textoCompleto;
     } catch (erro) {
       if (sinalExterno?.aborted) throw criarErroCancelamento();

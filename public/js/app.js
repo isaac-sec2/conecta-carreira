@@ -120,11 +120,21 @@ function validateCurriculoForm() {
     const digitos = parte.replace(/\D/g, "").length;
     return emailRegex.test(parte) || (phoneRegex.test(parte) && digitos >= 10 && digitos <= 15);
   };
-  if (contato && !contato.split("|").every(parte => contatoValido(parte.trim()))) {
+  if (!contato) {
+    setFieldError("contato", "Informe um email ou telefone");
+    valid = false;
+  } else if (!contato.split("|").every(parte => contatoValido(parte.trim()))) {
     setFieldError("contato", "Email ou telefone inválido");
     valid = false;
   } else {
     clearFieldError("contato");
+  }
+
+  if (!(el("formacao")?.value || "").trim() && !(el("habilidades")?.value || "").trim()) {
+    setFieldError("formacao", "Preencha a formação ou as habilidades");
+    valid = false;
+  } else {
+    clearFieldError("formacao");
   }
 
   [["linkedin", "LinkedIn"], ["github", "GitHub"]].forEach(([id, plataforma]) => {
@@ -278,39 +288,40 @@ Considere que o candidato pode ser estudante do ensino médio, estar buscando o 
 
 FORMATO OBRIGATÓRIO:
 ## Resumo Profissional
-Um resumo com 4 a 6 frases completas, específico para a vaga.
+Um resumo com 2 a 5 frases completas, específico para a vaga, usando só fatos informados. Com poucos dados, escreva menos frases em vez de preencher.
 ## Formação Acadêmica
 Use bullets com curso, instituição e situação. Se a instituição não foi informada, escreva apenas curso + situação — NUNCA invente nome de instituição nem use placeholders como "Instituição de Ensino Superior".
 ## Experiência Profissional
-Use bullets com atividades e aprendizados concretos. Se não houver experiência formal, escreva "Ainda não possui experiência formal" e siga para projetos.
+Use bullets com atividades e aprendizados concretos. Se nenhuma experiência foi informada, omita esta seção.
 ## Projetos Relevantes
-Se não houver experiência formal, crie até 2 projetos acadêmicos ou autodidatas plausíveis usando SOMENTE as habilidades e a formação informadas. Para cada projeto, escreva o título em negrito seguido de 2 a 4 bullets com o que foi feito e aprendido. NÃO escreva parágrafo introdutório — vá direto aos bullets, sem repetir a mesma informação duas vezes.
+Inclua somente projetos que o candidato informou. Para cada projeto, escreva o título em negrito seguido de 2 a 4 bullets com o que foi feito e aprendido. NÃO escreva parágrafo introdutório — vá direto aos bullets, sem repetir a mesma informação duas vezes. Se nenhum projeto foi informado, omita esta seção.
 ## Habilidades
-Separe habilidades técnicas e comportamentais em bullets.
+Liste só as habilidades informadas pelo candidato, separando técnicas e comportamentais em bullets. Nunca copie habilidades da descrição da vaga nem acrescente qualidades pessoais.
 ## Certificações e Cursos
-Inclua somente os que foram informados, mantendo o status dado pelo candidato (concluído / em andamento / estudando para). Se o status não foi informado, liste o nome sem afirmar conclusão e sem afirmar que é certificação obtida.
+Inclua somente o que o candidato chamou claramente de curso ou certificação; habilidades soltas como "Excel básico" ficam só em Habilidades. Mantenha o status dado pelo candidato (concluído / em andamento / estudando para). Se o status não foi informado, liste o nome sem afirmar conclusão e sem afirmar que é certificação obtida.
 ## Idiomas
 Inclua somente o idioma informado pelo candidato. Se não houver idioma informado, omita esta seção completamente.
 ## Pontos fortes para a vaga
 Quando houver descrição da vaga, liste de 2 a 5 combinações entre o perfil e a vaga, incluindo potencial e conhecimentos em desenvolvimento quando fizer sentido. Quando não houver descrição, omita esta seção.
 ## Próximos passos para se preparar
-Quando houver descrição da vaga, liste de 2 a 4 habilidades ou experiências que o candidato pode desenvolver. Explique cada ponto de forma acolhedora e prática. Quando não houver descrição, omita esta seção.
+Liste de 2 a 4 habilidades, experiências ou ideias de projeto simples que o candidato pode desenvolver para a vaga. Explique cada ponto de forma acolhedora e prática. Ideias de projeto são sugestões para o futuro, nunca fatos do currículo.
 
 REGRAS:
 - Retorne somente o Markdown do currículo, sem comentários antes ou depois.
+- Use exatamente os títulos acima, com ##. Omita qualquer seção do currículo sem dados informados.
+- "Pontos fortes para a vaga" e "Próximos passos para se preparar" são orientações ao candidato: ficam no fim, falam diretamente com ele e não fazem parte do currículo.
 - Não repita a mesma informação em duas seções diferentes.
 - Padronize o nome da vaga/objetivo com capitalização correta (ex.: "Analista SOC"), sem mudar o sentido do que o candidato escreveu.
 - Não escreva frases genéricas como "profissional dedicado" sem explicar evidências concretas.
-- Não invente empresas, empregos, certificados, idiomas, tecnologias, números ou experiências.
+- Não invente empresas, empregos, projetos, certificados, idiomas, tecnologias, habilidades, números ou experiências.
 - Pode transformar os dados em descrições profissionais melhores, mas sem criar fatos.
 - Nunca use linguagem de julgamento, como "não tem perfil", "inexperiente", "falta", "ausência" ou "não atende". Prefira "pode desenvolver", "ainda não foi informado" ou "seria interessante praticar".
 - Não compare um estudante com um profissional sênior. Se a vaga exigir experiência que o candidato ainda não possui, apresente isso como um objetivo de desenvolvimento, sem desqualificá-lo.
-- Reescreva experiências, projetos escolares, cursos e atividades com verbos de ação fortes e incorpore palavras-chave da vaga somente quando forem compatíveis com os dados reais.
-- Não inclua LinkedIn ou GitHub: esses links serão inseridos separadamente.
+- Reescreva experiências, projetos escolares, cursos e atividades com verbos de ação fortes e use palavras-chave da vaga somente para descrever o que o candidato informou. A descrição da vaga nunca é fonte de fatos sobre o candidato.
+- Não inclua título com o nome, contato, LinkedIn ou GitHub: esses dados serão inseridos separadamente.
 
 DADOS DO CANDIDATO:
 Nome: ${snapshot.nome}
-Contato: ${snapshot.contato || "Não informado"}
 Vaga desejada: ${snapshot.objetivo}
 Formação: ${snapshot.formacao || "Não informada"}
 Experiências: ${snapshot.experiencia || "Nenhuma formal"}
@@ -322,6 +333,23 @@ ${snapshot.descricaoVaga || "Não informada. Gere um currículo geral para a vag
 Cidade: ${snapshot.cidade || "Não informada"}
 Estado: ${snapshot.estado || "Não informado"}
 Idioma: ${snapshot.idioma || "Não informado"}`;
+}
+
+function separarOrientacao(markdown) {
+  const secoes = String(markdown || "").split(/^(?=#{1,6}\s)/m);
+  const ehOrientacao = secao => /^#{1,6}\s*\**\s*(pontos fortes|pr[oó]ximos passos)/i.test(secao);
+  return {
+    curriculo: secoes.filter(secao => !ehOrientacao(secao)).join(""),
+    orientacao: secoes.filter(ehOrientacao).join("")
+  };
+}
+
+function renderizarOrientacao(markdown) {
+  const box = el("orientacao-curriculo");
+  const texto = el("orientacao-curriculo-texto");
+  if (!box || !texto) return;
+  texto.innerHTML = markdownParaHtml(markdown);
+  box.hidden = !String(markdown || "").trim();
 }
 
 const LIMITE_PROMPT_CLIENTE = typeof LIMITE_MAX_PROMPT === "number" ? LIMITE_MAX_PROMPT : 12000;
@@ -464,6 +492,9 @@ function limparResultadoCurriculo() {
   if (botoes) botoes.style.display = "none";
   const skeleton = el("skeleton-curriculo");
   if (skeleton) skeleton.hidden = true;
+  renderizarOrientacao("");
+  const avisoCorte = el("aviso-corte-curriculo");
+  if (avisoCorte) avisoCorte.hidden = true;
   const btnEditar = el("btn-editar");
   if (btnEditar) {
     editandoCurriculo = false;
@@ -521,19 +552,25 @@ async function gerarCurriculo() {
       if (!ehAtual()) return;
       renderizarPreviaCurriculo(caixa, snapshot.nome, acumulado);
     }, requestId);
+    let cortado = false;
     const respostaMarkdown = await chamarGemini(promptCompleto, aoTrecho, {
-      maxTokens: 3072,
+      maxTokens: 4096,
       temperature: 0.55,
       signal: controller.signal,
-      retries: 2
+      retries: 2,
+      aoCortar: () => { cortado = true; }
     });
     if (!ehAtual()) return;
     if (!respostaMarkdown.trim()) throw new Error("A IA retornou uma resposta vazia.");
 
-    ultimoMarkdownCurriculo = respostaMarkdown;
+    const { curriculo, orientacao } = separarOrientacao(respostaMarkdown);
+    ultimoMarkdownCurriculo = curriculo;
     ultimoPromptCurriculo = promptCompleto;
     ultimoSnapshotCurriculo = snapshot;
-    renderCurriculoMarkdown(respostaMarkdown, caixa, snapshot);
+    renderCurriculoMarkdown(curriculo, caixa, snapshot);
+    renderizarOrientacao(orientacao);
+    const avisoCorte = el("aviso-corte-curriculo");
+    if (avisoCorte) avisoCorte.hidden = !cortado;
     if (caixa) {
       caixa.style.display = "block";
       caixa.setAttribute("aria-busy", "false");
@@ -1057,7 +1094,8 @@ function solicitarEntrevista(prompt, tipo, token, concluir) {
   return chamarGemini(prompt, aoTrecho, {
     maxTokens: tipo === "feedback" ? 500 : 400,
     temperature: 0.6,
-    signal: controller.signal
+    signal: controller.signal,
+    aoCortar: () => toastWarning("Resposta incompleta", "A IA atingiu o limite de tamanho e o texto foi cortado.")
   }).then(resposta => {
     if (!ativo()) {
       digitando?.remove();
@@ -1223,6 +1261,7 @@ function cancelarEntrevista() {
 ["nome", "contato", "linkedin", "github", "formacao", "experiencia", "habilidades", "objetivo"].forEach(id => {
   el(id)?.addEventListener("input", () => clearFieldError(id));
 });
+el("habilidades")?.addEventListener("input", () => clearFieldError("formacao"));
 
 el("resposta")?.addEventListener("keydown", evento => {
   if (evento.key === "Enter" && !evento.shiftKey && !evento.isComposing) {

@@ -86,8 +86,8 @@
             </div>
 
             <div class="form-group">
-              <label for="contato">Contato (email / telefone)</label>
-              <input type="text" id="contato" placeholder="maria@email.com | +55 (11) 99999-0000" maxlength="160" aria-invalid="false" aria-describedby="err-contato">
+              <label for="contato">Contato (email / telefone) <span aria-hidden="true">*</span></label>
+              <input type="text" id="contato" placeholder="maria@email.com | +55 (11) 99999-0000" maxlength="160" required aria-required="true" aria-invalid="false" aria-describedby="err-contato">
               <div class="form-error" role="alert" id="err-contato" hidden></div>
             </div>
 
@@ -138,6 +138,8 @@
               <textarea id="descricao-vaga" placeholder="Cole aqui os requisitos e responsabilidades da vaga para personalizar o currículo..." maxlength="2500"></textarea>
             </div>
 
+            <p class="aviso-privacidade">O que você escrever é enviado ao Google Gemini para gerar o texto. Este site não guarda o formulário. Não informe CPF, RG ou outros documentos. Seu contato fica só no navegador.</p>
+
             <button class="btn btn-primario" id="btn-gerar" onclick="gerarCurriculo()"><i data-lucide="sparkles" aria-hidden="true"></i> Gerar currículo com IA</button>
             <button class="btn btn-secundario" id="btn-exemplo" type="button" onclick="preencherExemplo()" style="margin-top:10px"><i data-lucide="wand-2" aria-hidden="true"></i> Preencher com exemplo</button>
             <button class="btn btn-cancelar" id="btn-cancelar-curriculo" onclick="cancelarGeracao()" hidden><i data-lucide="x" aria-hidden="true"></i> Cancelar (Esc)</button>
@@ -151,6 +153,11 @@
               <strong>Não foi possível gerar agora.</strong>
               <p id="erro-curriculo-msg"></p>
               <button class="btn btn-tentar" type="button" onclick="tentarNovamenteCurriculo()"><i data-lucide="rotate-ccw" aria-hidden="true"></i> Tentar novamente</button>
+            </div>
+
+            <div class="erro-box" id="aviso-corte-curriculo" hidden role="status">
+              <strong>O texto pode estar incompleto.</strong>
+              <p>A IA atingiu o limite de tamanho. Revise o final ou gere de novo.</p>
             </div>
 
             <div class="resultado" id="resultado-curriculo" aria-live="off" aria-busy="false"></div>
@@ -168,6 +175,11 @@
               <button class="btn btn-primario" id="btn-pdf" onclick="baixarPDF()"><i data-lucide="download" aria-hidden="true"></i> Baixar PDF</button>
               <button class="btn btn-secundario" id="btn-txt" onclick="baixarTXT()"><i data-lucide="file-text" aria-hidden="true"></i> Baixar TXT</button>
               <button class="btn btn-limpar" id="btn-limpar-curriculo" onclick="limparHistorico('curriculo')"><i data-lucide="trash-2" aria-hidden="true"></i> Limpar histórico</button>
+            </div>
+
+            <div class="resultado orientacao-curriculo" id="orientacao-curriculo" hidden>
+              <strong>Só para você: isto não entra no PDF nem no texto copiado.</strong>
+              <div class="curriculo-markdown" id="orientacao-curriculo-texto"></div>
             </div>
           </div>
         </div>
@@ -201,6 +213,8 @@
                 <span class="progress-step__label">Feedback</span>
               </div>
             </div>
+
+            <p class="aviso-privacidade">Suas respostas são enviadas ao Google Gemini para gerar as perguntas e o feedback. Este site não guarda a conversa. Não informe CPF, RG ou outros documentos.</p>
 
             <button class="btn btn-primario" id="btn-iniciar" onclick="iniciarEntrevista()"><i data-lucide="play" aria-hidden="true"></i> Começar simulação</button>
 

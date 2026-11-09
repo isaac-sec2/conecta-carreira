@@ -73,6 +73,7 @@ curl -X POST http://localhost:5000/api/gemini \
 ```bash
 pip install -r requirements.txt
 pytest -q
+node --test tests/test_frontend.mjs
 ```
 
 A suíte não chama a API real. Ela cobre health/readiness, validação estrita, limite de corpo, CORS, preflight, rate-limit, streaming, upstream e proteção de arquivos privados.
