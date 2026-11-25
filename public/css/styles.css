@@ -1,47 +1,28 @@
 /* Conecta Carreira: só o que o kit (assets/) não tem: a janela das ferramentas, o resultado, o chat e os avisos.
    Cores, tipos, botões e campos vêm de assets/system.css. */
 
-/* ---------- Janela do hero ---------- */
-.demo {
-  background: var(--bg);
-  color: var(--ink);
-  border: 1px solid var(--line);
-  border-radius: var(--r-md);
-  overflow: hidden;
-  font-size: 13px;
-  line-height: 1.45;
-}
-.demo__bar {
-  display: flex;
-  align-items: center;
-  gap: var(--s-3);
-  padding: var(--s-3) var(--s-4);
-  border-bottom: 1px solid var(--line);
-  color: var(--muted);
-}
-.demo__bar b { color: var(--ink); font-weight: 500; }
-.demo__dots { display: inline-flex; gap: 6px; }
-.demo__dots i { width: 10px; height: 10px; border-radius: 50%; background: var(--line-strong); }
-.demo__body { display: grid; grid-template-columns: 240px minmax(0, 1fr); min-height: 420px; }
-.demo__dados { display: grid; align-content: start; gap: var(--s-1); padding: var(--s-3); border-right: 1px solid var(--line); }
-.demo__campo { display: grid; gap: 2px; padding: var(--s-2) var(--s-3); border-radius: var(--r-sm); }
+/* ---------- Janela do hero: o formulário e a folha de verdade, direto no fundo claro ---------- */
+.demo { color: var(--ground-ink); font-size: 13px; line-height: 1.45; }
+.demo__body { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: var(--s-5); }
+.demo__dados { display: grid; align-content: start; gap: var(--s-3); }
+.demo__campo { display: grid; gap: var(--s-1); }
 .demo__campo b { font-weight: 500; }
-.demo__campo span { color: var(--muted); }
-.demo__campo.is-on { background: var(--surface); }
-.demo__conversa { display: grid; align-content: start; justify-items: start; gap: var(--s-2); padding: var(--s-4); }
-.demo__msg { max-width: 86%; padding: var(--s-2) var(--s-3); border-radius: var(--r-md); background: var(--surface); }
-.demo__msg--eu { justify-self: end; background: var(--action); color: var(--action-ink); }
-.demo__passo { color: var(--muted); }
-.demo__acoes { display: flex; gap: var(--s-2); }
-.demo__acoes span { padding: 6px 12px; border-radius: 99px; background: var(--action); color: var(--action-ink); font-weight: 500; }
-.demo__acoes span + span { background: var(--surface); color: var(--ink); }
-
+.demo__campo span { padding: var(--s-2) var(--s-3); border: 1px solid rgb(0 0 0 / .12); border-radius: var(--r-sm); background: #fff; color: #262626; }
+.demo__campo.is-on span { border-color: #0e7c6b; box-shadow: 0 0 0 2px rgb(14 124 107 / .25); }
+.demo__folha { border-radius: var(--r-sm); overflow: hidden; background: #fff; color: #262626; font-size: 12px; }
+.demo__faixa { display: grid; gap: 2px; padding: var(--s-3) var(--s-4); border-bottom: 3px solid #0e7c6b; background: #1b2a41; }
+.demo__faixa b { color: #fff; font-size: 18px; font-weight: 500; }
+.demo__faixa span { color: #7dd3c0; }
+.demo__faixa small { color: #d6dee8; font-size: 11px; }
+.demo__secao { padding: var(--s-3) var(--s-4) 0; }
+.demo__secao h4 { margin: 0 0 var(--s-2); padding-bottom: 3px; border-bottom: 1px solid #e2e8f0; color: #0e7c6b; font-size: 11px; font-weight: 500; text-transform: uppercase; }
+.demo__secao p { padding-left: var(--s-2); border-left: 2px solid #0e7c6b; }
+.demo__etiquetas { display: flex; flex-wrap: wrap; gap: 6px; }
+.demo__etiquetas span { padding: 2px 9px; border-radius: 99px; background: #e3f2ef; color: #0b5d51; font-size: 11px; }
 .hero--centred .hero__lead { color: var(--ink); }
-.hero__window > .loop-pause:focus-visible { outline: 2px solid var(--ground-ink); }
-.demo .loop-pause:focus-visible { outline: 2px solid #fff; }
-
 #etapas .panel { --p-h: 300px; }
-
+.hero__window > .loop-pause:focus-visible { outline: 2px solid var(--ground-ink); }
+.demo .loop-pause:focus-visible { outline: 2px solid var(--ground-ink); }
 .faq__contato { display: inline-flex; align-items: center; gap: var(--s-2); }
 .faq__contato img { width: 24px; height: 24px; }
 
@@ -238,7 +219,6 @@
   .ferramentas__topo .tabs { width: 100%; }
   .form { grid-template-columns: minmax(0, 1fr); }
   .form > .field { grid-column: 1 / -1; }
-  .demo__passo { display: none; }
   #resultado-curriculo { padding: var(--s-4); }
   .chat-input { flex-direction: column; align-items: stretch; }
 }

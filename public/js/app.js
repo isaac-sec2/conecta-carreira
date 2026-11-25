@@ -1561,13 +1561,32 @@ function ativarAba(target) {
   el(`tab-${target}`)?.click();
 }
 
+// O mesmo mínimo que validateCurriculoForm exige: nome, contato, vaga e formação ou habilidades.
+function primeiroCampoVazio() {
+  const vazio = id => !(el(id)?.value || "").trim();
+  return ["nome", "contato", "objetivo"].find(vazio) || (vazio("formacao") && vazio("habilidades") ? "formacao" : "");
+}
+
 botoesHero.forEach(botao => {
   botao.addEventListener("click", evento => {
     evento.preventDefault();
     ativarAba(botao.dataset.tab);
-    const ferramentas = el("ferramentas");
-    const reduzir = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-    ferramentas?.scrollIntoView({ behavior: reduzir ? "auto" : "smooth", block: "start" });
+    const comportamento = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
+    if (botao.dataset.tab !== "curriculo") {
+      el("ferramentas")?.scrollIntoView({ behavior: comportamento, block: "start" });
+      return;
+    }
+    // "Criar meu currículo" leva ao primeiro campo que falta; com tudo preenchido, já gera.
+    const campo = el(primeiroCampoVazio());
+    if (campo) {
+      campo.scrollIntoView({ behavior: comportamento, block: "center" });
+      campo.focus({ preventScroll: true });
+      return;
+    }
+    const celular = window.matchMedia?.("(max-width: 639px)").matches;
+    const destino = celular ? el("curriculo-panel")?.querySelector(".janela__saida") : el("ferramentas");
+    destino?.scrollIntoView({ behavior: comportamento, block: "start" });
+    gerarCurriculo();
   });
 });
 
